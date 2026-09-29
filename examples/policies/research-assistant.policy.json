@@ -1,0 +1,11 @@
+{
+  "write_preapproved": ["notes/**", "draft.md", "memory.md"],
+  "protected_paths": [".env", "*.pem", "secrets/**"],
+  "shell": {
+    "allow": ["ls", "git"],
+    "deny": ["rm"]
+  },
+  "web": {
+    "allow_domains": ["en.wikipedia.org", "arxiv.org", "pypi.org"]
+  }
+}

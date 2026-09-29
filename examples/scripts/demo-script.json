@@ -1,0 +1,7 @@
+[
+  "Plan: record a memory note first.\n<<<TOOL_CALL>>>\n{\"name\": \"note\", \"args\": {\"text\": \"Starting the demo run.\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Creating and reading the intro note.\n<<<TOOL_CALL>>>\n{\"name\": \"file_write\", \"args\": {\"path\": \"notes/intro.md\", \"content\": \"# Intro: hearth demo workspace.\"}}\n<<<END_TOOL_CALL>>>\n<<<TOOL_CALL>>>\n{\"name\": \"file_read\", \"args\": {\"path\": \"notes/intro.md\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Now the summary. This write is NOT pre-approved, so the operator will be asked exactly once.\n<<<TOOL_CALL>>>\n{\"name\": \"file_write\", \"args\": {\"path\": \"summary.md\", \"content\": \"Demo complete: sandbox, gate, and log exercised.\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Trying a disguised escape; the sandbox should stop it without asking anyone.\n<<<TOOL_CALL>>>\n{\"name\": \"file_write\", \"args\": {\"path\": \"notes/../../escape.txt\", \"content\": \"should never land\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Demo finished. The gate approved one write after operator approval, the sandbox blocked one disguised escape, and every action is chained in the activity log."
+]

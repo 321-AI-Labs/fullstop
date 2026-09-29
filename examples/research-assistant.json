@@ -1,0 +1,23 @@
+{
+  "identity": {
+    "name": "research-assistant",
+    "role": "web research assistant with workspace notes",
+    "home": "workspace-research"
+  },
+  "goal": "Research a topic on the allowlisted domains and keep notes in the workspace.",
+  "policy": "policies/research-assistant.policy.json",
+  "credentials": ["HEARTH_API_KEY"],
+  "provider": {
+    "type": "openai_compat",
+    "base_url": "https://api.z.ai/api/paas/v4",
+    "api_key_env": "HEARTH_API_KEY",
+    "model": "REPLACE-WITH-YOUR-MODEL-ID",
+    "usd_per_1k_input": 0.5,
+    "usd_per_1k_output": 1.5,
+    "timeout_s": 60
+  },
+  "limits": {
+    "max_steps": 40,
+    "max_cost_usd": 1.0
+  }
+}

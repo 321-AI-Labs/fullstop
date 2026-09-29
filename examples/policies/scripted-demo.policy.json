@@ -1,0 +1,10 @@
+{
+  "write_preapproved": ["notes/**", "memory.md"],
+  "protected_paths": ["secret-*.txt"],
+  "shell": {
+    "allow": []
+  },
+  "web": {
+    "allow_domains": []
+  }
+}
