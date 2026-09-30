@@ -1,7 +1,9 @@
-"""fullstop CLI: run / resume / log / status. JSON everywhere, no YAML (CHARTER.md:13).
+"""fullstop CLI: run / resume / log / status / ui. JSON everywhere, no YAML.
 
 ``main(argv, approver)`` is a seam: tests pass ScriptedApprover so no test can
-ever block on a tty prompt; the CLI defaults to InteractiveApprover.
+ever block on a tty prompt; the CLI defaults to InteractiveApprover. With
+``--ui`` the approver is the browser UiApprover (decision-file protocol);
+an injected approver still wins over ``--ui``.
 
 v0.1.1 (FIXLIST items 2, 4, 16):
 - ``run --goal`` overrides the manifest goal BEFORE the loop (and thus the
@@ -25,6 +27,9 @@ from .policy import load_policy, policy_from_dict
 from .provider import build_provider
 from .redact import Redactor
 from .state import RunState, activity_path, checkpoint_path, load_checkpoint
+from .ui_approver import DEFAULT_TIMEOUT_S, UiApprover
+from .ui_server import DEFAULT_PORT, UiServer
+from . import ui_strings
 
 _OK_STATUSES = ("completed", "stopped_max_steps", "stopped_max_cost",
                 "script_exhausted")
@@ -36,6 +41,19 @@ class _JsonArgumentParser(argparse.ArgumentParser):
         raise SystemExit(2)
 
 
+def _add_ui_args(p, with_run_flags: bool = False) -> None:
+    if with_run_flags:
+        p.add_argument("--ui", action="store_true", help=ui_strings.UI_RUN_FLAG_HELP)
+    p.add_argument("--no-browser", action="store_true",
+                   help=ui_strings.UI_NO_BROWSER_HELP)
+    p.add_argument("--port", type=int, default=DEFAULT_PORT,
+                   help=ui_strings.UI_PORT_HELP)
+    if with_run_flags:
+        p.add_argument("--approval-timeout", type=float,
+                       default=DEFAULT_TIMEOUT_S,
+                       help=ui_strings.UI_APPROVAL_TIMEOUT_HELP)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = _JsonArgumentParser(prog="fullstop", description=__doc__)
     sub = parser.add_subparsers(dest="command")
@@ -44,12 +62,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--manifest", required=True)
     p_run.add_argument("--goal", default=None,
                        help="override the manifest goal")
+    _add_ui_args(p_run, with_run_flags=True)
 
     p_resume = sub.add_parser("resume", help="continue from the checkpoint")
     p_resume.add_argument("--manifest", required=True)
     p_resume.add_argument("--allow-config-change", action="store_true",
                           help="resume even though the manifest/policy bytes "
                                "changed since the last run")
+    _add_ui_args(p_resume, with_run_flags=True)
 
     p_log = sub.add_parser("log", help="read the activity log")
     p_log.add_argument("--manifest", required=True)
@@ -58,6 +78,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_status = sub.add_parser("status", help="print the checkpointed run state")
     p_status.add_argument("--manifest", required=True)
+
+    p_ui = sub.add_parser("ui", help=ui_strings.UI_COMMAND_HELP)
+    p_ui.add_argument("--manifest", required=True,
+                      help=ui_strings.UI_MANIFEST_HELP)
+    _add_ui_args(p_ui)
     return parser
 
 
@@ -117,7 +142,7 @@ def main(argv: list[str] | None = None,
 
     if not args.command:
         print(json.dumps({"error": "usage: a command is required "
-                                   "(run, resume, log, status)"}), file=sys.stderr)
+                                   "(run, resume, log, status, ui)"}), file=sys.stderr)
         return 2
     try:
         return _dispatch(args, approver)
@@ -126,11 +151,30 @@ def main(argv: list[str] | None = None,
         return 1
 
 
+def _pick_approver(args, injected, home: Path, redactor: Redactor):
+    """Approver precedence (seam law): an injected approver (tests) always
+    wins; --ui selects the browser UiApprover; the default stays the
+    unchanged InteractiveApprover."""
+    if injected is not None:
+        return injected
+    if getattr(args, "ui", False):
+        return UiApprover(home, redactor=redactor,
+                          timeout_s=args.approval_timeout)
+    return InteractiveApprover()
+
+
 def _dispatch(args, approver) -> int:
     manifest = load_manifest(args.manifest)
     policy = _load_policy_for(manifest)
     home = Path(manifest.identity.home)
     hashes = _config_hashes(args.manifest, manifest)
+
+    if args.command == "ui":
+        server = UiServer(home, port=args.port,
+                          open_browser=not args.no_browser)
+        print(ui_strings.URL_LINE.format(url=server.start()), flush=True)
+        server.serve_forever()
+        return 0
 
     if args.command == "run":
         # FIXLIST item 4: apply the goal override BEFORE the loop is built so
@@ -141,13 +185,23 @@ def _dispatch(args, approver) -> int:
         provider = build_provider(manifest.provider)
         log = ActivityLog(activity_path(home), redactor=redactor,
                           truncate_chars=manifest.log_truncate_chars)
-        loop = AgentLoop(manifest, policy, provider, log, redactor,
-                         approver=approver if approver is not None
-                         else InteractiveApprover(),
-                         config_hashes=hashes)
-        state = loop.new_state()
-        state.manifest_path = str(Path(args.manifest).resolve())
-        state = loop.run(state)
+        server = None
+        if args.ui:
+            server = UiServer(home, port=args.port,
+                              open_browser=not args.no_browser)
+            print(ui_strings.RUN_UI_URL_LINE.format(url=server.start()),
+                  flush=True)
+        try:
+            loop = AgentLoop(manifest, policy, provider, log, redactor,
+                             approver=_pick_approver(args, approver, home,
+                                                     redactor),
+                             config_hashes=hashes)
+            state = loop.new_state()
+            state.manifest_path = str(Path(args.manifest).resolve())
+            state = loop.run(state)
+        finally:
+            if server is not None:
+                server.stop()
         print(json.dumps({"run_id": state.run_id, "status": state.status,
                           "steps_done": state.steps_done,
                           "cost_usd": state.cost_usd}))
@@ -162,11 +216,21 @@ def _dispatch(args, approver) -> int:
                           truncate_chars=manifest.log_truncate_chars)
         _refuse_changed_config(
             log, hashes, allow=bool(args.allow_config_change))
-        loop = AgentLoop(manifest, policy, provider, log, redactor,
-                         approver=approver if approver is not None
-                         else InteractiveApprover(),
-                         config_hashes=hashes)
-        state = loop.run(state)
+        server = None
+        if args.ui:
+            server = UiServer(home, port=args.port,
+                              open_browser=not args.no_browser)
+            print(ui_strings.RUN_UI_URL_LINE.format(url=server.start()),
+                  flush=True)
+        try:
+            loop = AgentLoop(manifest, policy, provider, log, redactor,
+                             approver=_pick_approver(args, approver, home,
+                                                     redactor),
+                             config_hashes=hashes)
+            state = loop.run(state)
+        finally:
+            if server is not None:
+                server.stop()
         print(json.dumps({"run_id": state.run_id, "status": state.status,
                           "steps_done": state.steps_done,
                           "cost_usd": state.cost_usd}))

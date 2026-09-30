@@ -61,7 +61,9 @@ class ImportTests(unittest.TestCase):
         # Compile-level import sanity for every local module named above.
         import fullstop  # noqa: F401
         for mod in ("types", "redact", "manifest", "policy", "gate", "sandbox",
-                    "protocol", "activity", "state", "provider", "agent", "cli"):
+                    "protocol", "activity", "state", "provider", "agent", "cli",
+                    "ui_strings", "ui_approver", "ui_model", "ui_assets",
+                    "ui_wizard", "ui_server"):
             __import__(f"fullstop.{mod}")
         for mod in ("base", "file", "shell", "web", "note", "browser"):
             __import__(f"fullstop.tools.{mod}")
