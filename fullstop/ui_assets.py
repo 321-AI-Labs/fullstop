@@ -393,6 +393,17 @@ function renderState(st) {
     : live.dataset.state === 'stopped' ? S.liveStopped : S.liveWaiting;
 
   const runBox = $('#run-view');
+  // Rebuild the header only when what it SHOWS changes: a poll-driven
+  // rebuild would wipe transient state inside it (the verify result) and
+  // churn the DOM every cycle.
+  const sig = JSON.stringify([snap, st.history && st.history.length
+    ? st.history[st.history.length - 1].run_id : null]);
+  if (sig === (runBox.dataset.sig || '')) {
+    renderApprovals(st.pending || []);
+    renderHistory(st.history || []);
+    return;
+  }
+  runBox.dataset.sig = sig;
   if (!snap && !st.history.length) {
     runBox.replaceChildren(empty(S.runEmpty));
     renderApprovals(st.pending || []);
