@@ -6,13 +6,13 @@ import unittest
 from pathlib import Path
 
 import support
-from hearth.gate import Gate
-from hearth.policy import Policy
-from hearth.redact import Redactor
-from hearth.sandbox import SandboxError, rel_posix, resolve_in_sandbox
-from hearth.tools import build_registry
-from hearth.tools.file import FileReadTool, FileWriteTool
-from hearth.types import Action, ToolCall
+from fullstop.gate import Gate
+from fullstop.policy import Policy
+from fullstop.redact import Redactor
+from fullstop.sandbox import SandboxError, rel_posix, resolve_in_sandbox
+from fullstop.tools import build_registry
+from fullstop.tools.file import FileReadTool, FileWriteTool
+from fullstop.types import Action, ToolCall
 
 ALL_WRITE = Policy(write_preapproved=("**",))  # every literal write ALLOWed at gate
 
@@ -107,7 +107,7 @@ class ThroughToolTests(unittest.TestCase):
         self.assertEqual(result.error_code, "sandbox_escape")
 
     def test_symlink_alias_into_protected_read(self):
-        protected = self.h.home / ".hearth" / "protected.txt"
+        protected = self.h.home / ".fullstop" / "protected.txt"
         protected.write_text("crown jewels", encoding="utf-8")
         link = self.h.home / "alias.md"
         support.try_symlink(self, protected, link, "alias-protected")
@@ -117,9 +117,9 @@ class ThroughToolTests(unittest.TestCase):
         self.assertFalse(result.ok)
 
     def test_literal_protected_approved_read_executes(self):
-        protected = self.h.home / ".hearth" / "protected.txt"
+        protected = self.h.home / ".fullstop" / "protected.txt"
         protected.write_text("operator let me read this", encoding="utf-8")
-        call = ToolCall("file_read", {"path": ".hearth/protected.txt"})
+        call = ToolCall("file_read", {"path": ".fullstop/protected.txt"})
         decision = self.h.gate.decide(call)
         self.assertEqual(decision.action, Action.APPROVAL_REQUIRED)
         final = self.h.gate.resolve_approval(call, True)

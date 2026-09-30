@@ -1,0 +1,15 @@
+{
+  "write_preapproved": [
+    "drafts/**"
+  ],
+  "protected_paths": [
+    ".env",
+    "secret-*.txt"
+  ],
+  "shell": {
+    "allow": []
+  },
+  "web": {
+    "allow_domains": []
+  }
+}

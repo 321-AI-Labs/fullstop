@@ -1,0 +1,16 @@
+{
+  "identity": {
+    "name": "research-readonly",
+    "role": "read-only research specialist; its write targets are protected, so it cannot modify the workspace",
+    "home": "workspace-research-readonly"
+  },
+  "goal": "Inventory the workspace read-only: list what is here and never modify a single file.",
+  "policy": "policies/research-readonly.policy.json",
+  "provider": {
+    "type": "scripted",
+    "script_path": "scripts/research-readonly-script.json"
+  },
+  "limits": {
+    "max_steps": 8
+  }
+}

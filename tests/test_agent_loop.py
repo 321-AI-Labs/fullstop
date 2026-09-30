@@ -8,13 +8,13 @@ import unittest
 from pathlib import Path
 
 import support
-from hearth.agent import ScriptedApprover
-from hearth.manifest import Identity, Limits, Manifest, ProviderConfig
-from hearth.policy import Policy
-from hearth.provider import ModelReply, ProviderError, ScriptedModel, Usage
-from hearth.redact import Redactor
-from hearth.state import checkpoint_path, load_checkpoint
-from hearth.types import EVENTS, RUN_STATUSES
+from fullstop.agent import ScriptedApprover
+from fullstop.manifest import Identity, Limits, Manifest, ProviderConfig
+from fullstop.policy import Policy
+from fullstop.provider import ModelReply, ProviderError, ScriptedModel, Usage
+from fullstop.redact import Redactor
+from fullstop.state import checkpoint_path, load_checkpoint
+from fullstop.types import EVENTS, RUN_STATUSES
 
 WRITE_NOTES = Policy(write_preapproved=("notes/**", "memory.md"))
 
@@ -100,7 +100,7 @@ class FullRunTests(unittest.TestCase):
                                {"path": f"notes/{i}.md", "content": "x"})
             for i in range(5)
         ] + ["never reached"]
-        script = support.write_script(self.home / ".hearth", replies)
+        script = support.write_script(self.home / ".fullstop", replies)
         manifest = support.script_manifest(self.home, script, max_steps=2)
         loop = support.build_loop(self.home, replies, policy=WRITE_NOTES,
                                   manifest=manifest)
@@ -144,7 +144,7 @@ class FullRunTests(unittest.TestCase):
                                {"path": "notes/2.md", "content": "2"}),
             "all done",
         ]
-        script = support.write_script(self.home / ".hearth", replies)
+        script = support.write_script(self.home / ".fullstop", replies)
         manifest = support.script_manifest(self.home, script, max_steps=1)
         loop1 = support.build_loop(self.home, replies, policy=WRITE_NOTES,
                                    manifest=manifest)
@@ -186,7 +186,7 @@ class FullRunTests(unittest.TestCase):
         self.assertEqual(results[0]["error_code"], "sandbox_escape")
 
     def test_protected_target_event_during_loop_via_symlink_alias(self):
-        protected = self.home / ".hearth" / "crown.txt"
+        protected = self.home / ".fullstop" / "crown.txt"
         protected.write_text("jewels", encoding="utf-8")
         link = self.home / "alias.md"
         support.try_symlink(self, protected, link, "loop-alias-protected")
@@ -215,12 +215,12 @@ class FullRunTests(unittest.TestCase):
         self.assertEqual(entries[-1]["status"], "script_exhausted")
 
     def test_provider_error_fails_the_run_with_scrubbed_text(self):
-        exc = ProviderError("env var HEARTH_SECRET_X not set")
+        exc = ProviderError("env var FULLSTOP_SECRET_X not set")
         loop = support.build_loop(self.home, [], policy=WRITE_NOTES,
                                   provider=FakeProvider([], exc=exc))
         state = loop.run(loop.new_state())
         self.assertEqual(state.status, "failed")
-        self.assertIn("env var HEARTH_SECRET_X not set", state.failure)
+        self.assertIn("env var FULLSTOP_SECRET_X not set", state.failure)
 
     def test_token_and_cost_accounting(self):
         manifest = Manifest(
@@ -246,17 +246,32 @@ class FullRunTests(unittest.TestCase):
         self.assertAlmostEqual(state.cost_usd, 0.30)
 
     def test_no_approver_and_denial_paths(self):
+        # v0.1.1 (FIXLIST item 10): an approval demand no human can hear
+        # (no approver configured) pauses the run cleanly in
+        # stopped_approval instead of spinning denials to max_steps.
         loop = support.build_loop(
             self.home,
             [support.call_block("file_write",
                                 {"path": "unpre.md", "content": "x"}), "done"],
             policy=WRITE_NOTES, approver=None)
         state = loop.run(loop.new_state())
-        self.assertEqual(state.status, "completed")
+        self.assertEqual(state.status, "stopped_approval")
+        self.assertLessEqual(state.steps_done, 1)
         results = support.tool_results(support.read_events(self.home))
         self.assertEqual(results[0]["error_code"], "denied_by_operator")
         self.assertEqual(results[0]["error"], "no approver configured")
         self.assertFalse((self.home / "unpre.md").exists())
+        # A PRESENT human denying still just denies that one call.
+        loop2 = support.build_loop(
+            self.home,
+            [support.call_block("file_write",
+                                {"path": "unpre2.md", "content": "x"}), "done"],
+            policy=WRITE_NOTES, approver=ScriptedApprover([False]))
+        state2 = loop2.run(loop2.new_state())
+        self.assertEqual(state2.status, "completed")
+        results2 = support.tool_results(support.read_events(self.home))
+        self.assertEqual(results2[-1]["error_code"], "denied_by_operator")
+        self.assertFalse((self.home / "unpre2.md").exists())
 
 
 if __name__ == "__main__":

@@ -1,0 +1,16 @@
+{
+  "identity": {
+    "name": "writer-approval",
+    "role": "approval-gated writer; drafts are pre-approved, everything else asks, protected files are unapprovable",
+    "home": "workspace-writer-approval"
+  },
+  "goal": "Draft a report: write drafts freely, ask the operator before every other write, never touch protected files.",
+  "policy": "policies/writer-approval.policy.json",
+  "provider": {
+    "type": "scripted",
+    "script_path": "scripts/writer-approval-script.json"
+  },
+  "limits": {
+    "max_steps": 8
+  }
+}

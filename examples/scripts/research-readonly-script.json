@@ -1,0 +1,7 @@
+[
+  "Inventory first: list the workspace root.\n<<<TOOL_CALL>>>\n{\"name\": \"file_list\", \"args\": {\"path\": \".\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Attempting to save findings anyway — this write target is protected by policy, so the gate must refuse it outright, with no human asked.\n<<<TOOL_CALL>>>\n{\"name\": \"file_write\", \"args\": {\"path\": \"notes/findings.md\", \"content\": \"findings draft (must never land)\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Trying the memory note instead — a note is a write too, and memory.md is protected here as well.\n<<<TOOL_CALL>>>\n{\"name\": \"note\", \"args\": {\"text\": \"research started\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Re-listing the workspace to confirm nothing changed.\n<<<TOOL_CALL>>>\n{\"name\": \"file_list\", \"args\": {\"path\": \".\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Read-only run complete: both write attempts were refused by policy, no one was prompted, and the workspace is unchanged."
+]

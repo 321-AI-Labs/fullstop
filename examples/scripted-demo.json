@@ -4,7 +4,7 @@
     "role": "keyless scripted demo agent",
     "home": "workspace-demo"
   },
-  "goal": "Demonstrate the hearth loop end to end with no API key.",
+  "goal": "Demonstrate the fullstop loop end to end with no API key.",
   "policy": "policies/scripted-demo.policy.json",
   "provider": {
     "type": "scripted",

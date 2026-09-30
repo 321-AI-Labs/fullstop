@@ -9,16 +9,16 @@ import unittest
 from pathlib import Path
 
 import support
-from hearth.gate import Gate
-from hearth.policy import Policy, ShellPolicy, WebPolicy
-from hearth.redact import Redactor
-from hearth.tools import build_registry
-from hearth.tools.browser import BrowserTool
-from hearth.tools.file import FileListTool, FileReadTool, FileWriteTool
-from hearth.tools.note import NoteTool
-from hearth.tools.shell import ShellTool
-from hearth.tools.web import WebFetchTool
-from hearth.types import ERROR_CODES, Action, ToolCall
+from fullstop.gate import Gate
+from fullstop.policy import Policy, ShellPolicy, WebPolicy
+from fullstop.redact import Redactor
+from fullstop.tools import build_registry
+from fullstop.tools.browser import BrowserTool
+from fullstop.tools.file import FileListTool, FileReadTool, FileWriteTool
+from fullstop.tools.note import NoteTool
+from fullstop.tools.shell import ShellTool
+from fullstop.tools.web import WebFetchTool
+from fullstop.types import ERROR_CODES, Action, ToolCall
 
 WRITE_ALL = Policy(write_preapproved=("**",))
 
@@ -65,7 +65,7 @@ class FileToolTests(unittest.TestCase):
 
     def test_write_scrubs_path_and_content(self):
         marker = "sk-FAKE-tools"
-        redactor = Redactor({"HEARTH_KEY": marker})
+        redactor = Redactor({"FULLSTOP_KEY": marker})
         gate = Gate(WRITE_ALL, self.home)
         registry = build_registry(self.home, WRITE_ALL, redactor, gate.verify)
         call = ToolCall("file_write", {"path": "leak.md",
@@ -76,7 +76,7 @@ class FileToolTests(unittest.TestCase):
         self.assertTrue(result.ok, result.error)
         text = (self.home / "leak.md").read_text(encoding="utf-8")
         self.assertNotIn(marker, text)
-        self.assertIn("[REDACTED:HEARTH_KEY]", text)
+        self.assertIn("[REDACTED:FULLSTOP_KEY]", text)
 
     def test_read_respects_max_bytes_and_bad_utf8(self):
         (self.home / "bin.txt").write_bytes(b"\xff\xfeabc")
@@ -96,11 +96,11 @@ class FileToolTests(unittest.TestCase):
     def test_read_output_scrubbed(self):
         marker = "sk-FAKE-read"
         (self.home / "s.txt").write_text(f"x {marker} y", encoding="utf-8")
-        redactor = Redactor({"HEARTH_KEY": marker})
+        redactor = Redactor({"FULLSTOP_KEY": marker})
         tool = FileReadTool(self.home, redactor, WRITE_ALL)
         out = tool.execute(ToolCall("file_read", {"path": "s.txt"}))
         self.assertNotIn(marker, out.output)
-        self.assertIn("[REDACTED:HEARTH_KEY]", out.output)
+        self.assertIn("[REDACTED:FULLSTOP_KEY]", out.output)
 
     def test_read_malformed_args(self):
         tool = FileReadTool(self.home, Redactor({}), WRITE_ALL)
@@ -112,11 +112,11 @@ class FileToolTests(unittest.TestCase):
     def test_direct_protected_read_executes_at_tool_level(self):
         # literal-protected spelling: the alias rule does NOT fire (that is
         # what lets operator-approved protected reads execute).
-        protected = self.home / ".hearth" / "p.txt"
+        protected = self.home / ".fullstop" / "p.txt"
         protected.write_text("fine", encoding="utf-8")
         tool = FileReadTool(self.home, Redactor({}), Policy())
         result = tool.execute(ToolCall("file_read",
-                                       {"path": ".hearth/p.txt"}))
+                                       {"path": ".fullstop/p.txt"}))
         self.assertTrue(result.ok, result.error)
         self.assertNotEqual(result.error_code, "protected_target")
 
@@ -133,7 +133,7 @@ class FileToolTests(unittest.TestCase):
     def test_write_equality_rule_blocks_trailing_dot_spelling(self):
         # Verified on this machine: realpath('e.md.') == 'e.md' for an
         # EXISTING file, so resolved != literal -> SandboxError -> fail closed
-        # by design (do not "repair": see hearth/tools/file.py docstring).
+        # by design (do not "repair": see fullstop/tools/file.py docstring).
         (self.home / "x.md").write_text("real", encoding="utf-8")
         result = self.h.execute(ToolCall(
             "file_write", {"path": "x.md.", "content": "sneaky"}))
@@ -158,8 +158,11 @@ class FileToolTests(unittest.TestCase):
         result = self.h.execute(ToolCall("file_list", {"path": "."}))
         self.assertTrue(result.ok)
         lines = result.output.split("\n")
-        # name-sorted (casefolded), single level: .hearth, a.txt, b.txt, sub
-        self.assertEqual(lines, ["d\t-\t.hearth", "f\t1\ta.txt",
+        # name-sorted (casefolded), single level: a.txt, b.txt, sub.
+        # v0.1.1 (FIXLIST item 13): protected .fullstop/ metadata is HIDDEN
+        # from unapproved listings (that leak is what the fix removed); an
+        # operator-approved listing of .fullstop itself still shows it.
+        self.assertEqual(lines, ["f\t1\ta.txt",
                                  "f\t5\tb.txt", "d\t-\tsub"])
         # single level only
         result = self.h.execute(ToolCall("file_list", {"path": "sub"}))
@@ -211,13 +214,13 @@ class ShellToolTests(unittest.TestCase):
         self.assertIn("approval-honored", result.output)
 
     def test_env_scrubbed_of_credential_names(self):
-        os.environ["HEARTH_TOOL_TEST_KEY"] = "sk-FAKE-shell"
-        self.addCleanup(os.environ.pop, "HEARTH_TOOL_TEST_KEY", None)
+        os.environ["FULLSTOP_TOOL_TEST_KEY"] = "sk-FAKE-shell"
+        self.addCleanup(os.environ.pop, "FULLSTOP_TOOL_TEST_KEY", None)
         tool = self.tool(ShellPolicy(allow=(sys.executable,)),
-                         scrub_env=("HEARTH_TOOL_TEST_KEY",))
+                         scrub_env=("FULLSTOP_TOOL_TEST_KEY",))
         result = tool.execute(ToolCall("shell", {"argv": [
             sys.executable, "-c", "import os; print(os.environ)"]}))
-        self.assertNotIn("HEARTH_TOOL_TEST_KEY", result.output)
+        self.assertNotIn("FULLSTOP_TOOL_TEST_KEY", result.output)
         self.assertNotIn("sk-FAKE-shell", result.output)
 
     def test_timeout(self):
@@ -302,13 +305,13 @@ class NoteToolTests(unittest.TestCase):
 
     def test_appends_scrubbed_timestamped_line_to_fixed_target(self):
         marker = "sk-FAKE-note"
-        tool = NoteTool(self.home, Redactor({"HEARTH_KEY": marker}))
+        tool = NoteTool(self.home, Redactor({"FULLSTOP_KEY": marker}))
         result = tool.execute(ToolCall("note", {"text": f"learn {marker}"}))
         self.assertTrue(result.ok)
         self.assertEqual(result.output, "noted")
         text = (self.home / "memory.md").read_text(encoding="utf-8")
         self.assertTrue(text.startswith("- ["))
-        self.assertIn("learn [REDACTED:HEARTH_KEY]", text)
+        self.assertIn("learn [REDACTED:FULLSTOP_KEY]", text)
         self.assertNotIn(marker, text)
         tool.execute(ToolCall("note", {"text": "second"}))
         text2 = (self.home / "memory.md").read_text(encoding="utf-8")

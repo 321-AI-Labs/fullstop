@@ -1,0 +1,7 @@
+[
+  "Outline first: drafts/** is pre-approved, so this write lands with no prompt.\n<<<TOOL_CALL>>>\n{\"name\": \"file_write\", \"args\": {\"path\": \"drafts/outline.md\", \"content\": \"# Report outline\\n- goal\\n- method\\n- findings\\n\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Now the report itself — not pre-approved, so the operator is asked (prompt 1 of 2; answer y).\n<<<TOOL_CALL>>>\n{\"name\": \"file_write\", \"args\": {\"path\": \"report.md\", \"content\": \"Report body, written only after operator approval.\"}}\n<<<END_TOOL_CALL>>>\n",
+  "A memory note is also a write and also needs approval here (prompt 2 of 2; answer n to watch the denial path).\n<<<TOOL_CALL>>>\n{\"name\": \"note\", \"args\": {\"text\": \"report drafted\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Last, a protected target: a secret-*.txt write is hard-denied even WITH operator approval — watch this one be refused with no prompt at all.\n<<<TOOL_CALL>>>\n{\"name\": \"file_write\", \"args\": {\"path\": \"secret-keys.txt\", \"content\": \"must never land\"}}\n<<<END_TOOL_CALL>>>\n",
+  "Done: one promptless pre-approved write, one approved write, one operator-denied note, and one hard-denied protected write — every decision chained in the activity log."
+]

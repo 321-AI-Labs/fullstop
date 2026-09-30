@@ -1,0 +1,22 @@
+# fullstop CI: the whole suite, keyless and networkless, on every push.
+# The repo is stdlib-only (enforced by tests/test_imports.py), so there is
+# deliberately NO dependency-install step.
+name: CI
+
+on: push
+
+jobs:
+  test:
+    name: unittest (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run test suite
+        run: python -m unittest discover -s tests

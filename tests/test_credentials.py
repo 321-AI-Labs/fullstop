@@ -12,13 +12,13 @@ import uuid
 from pathlib import Path
 
 import support
-from hearth.agent import ScriptedApprover
-from hearth.manifest import ProviderConfig
-from hearth.policy import Policy, ShellPolicy
-from hearth.provider import OpenAICompatProvider, ProviderError
-from hearth.redact import Redactor
+from fullstop.agent import ScriptedApprover
+from fullstop.manifest import ProviderConfig
+from fullstop.policy import Policy, ShellPolicy
+from fullstop.provider import OpenAICompatProvider, ProviderError
+from fullstop.redact import Redactor
 
-ENV_NAME = "HEARTH_FAKE_KEY"
+ENV_NAME = "FULLSTOP_FAKE_KEY"
 
 
 class CredentialTests(unittest.TestCase):
@@ -54,7 +54,7 @@ class CredentialTests(unittest.TestCase):
             self.home, replies, policy=policy,
             approver=ScriptedApprover([True]),  # approve the leak.md write
             manifest=support.script_manifest(
-                self.home, self.home / ".hearth" / "script.json",
+                self.home, self.home / ".fullstop" / "script.json",
                 credentials=[ENV_NAME]),
             redactor=Redactor.from_env([ENV_NAME]))
         state = loop.run(loop.new_state())
@@ -67,7 +67,7 @@ class CredentialTests(unittest.TestCase):
             data = path.read_bytes()
             self.assertNotIn(self.marker.encode(), data,
                              f"marker leaked into {path}")
-        log_text = (self.home / ".hearth" / "activity.jsonl").read_text(
+        log_text = (self.home / ".fullstop" / "activity.jsonl").read_text(
             encoding="utf-8")
         self.assertIn(f"[REDACTED:{ENV_NAME}]", log_text)
         # The write layers scrubbed content too.
@@ -76,7 +76,7 @@ class CredentialTests(unittest.TestCase):
         self.assertIn(f"[REDACTED:{ENV_NAME}]",
                       (self.home / "memory.md").read_text(encoding="utf-8"))
         # The checkpoint scrubbed messages.
-        state_text = (self.home / ".hearth" / "state.json").read_text(
+        state_text = (self.home / ".fullstop" / "state.json").read_text(
             encoding="utf-8")
         self.assertNotIn(self.marker, state_text)
 

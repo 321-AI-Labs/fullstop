@@ -1,5 +1,12 @@
 __pycache__/
 *.pyc
 .smoke-out/
-examples/workspace-demo/
-examples/workspace-research/
+
+# agent workspaces are created at run time beside their manifests
+examples/workspace-*/
+
+# build artifacts (pyproject.toml ships even though the repo is stdlib-only)
+build/
+dist/
+*.egg-info/
+.venv/

@@ -1,0 +1,13 @@
+{
+  "write_preapproved": [],
+  "protected_paths": [
+    "notes/**",
+    "memory.md"
+  ],
+  "shell": {
+    "allow": []
+  },
+  "web": {
+    "allow_domains": []
+  }
+}

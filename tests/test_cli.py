@@ -1,5 +1,5 @@
 """In-process main(argv, approver) — no path can touch stdin — plus one real
-`python -m hearth status` subprocess proving the -m entry; exit codes and JSON
+`python -m fullstop status` subprocess proving the -m entry; exit codes and JSON
 output; error JSON on stderr. Scenarios are pinned approval-free."""
 
 import io
@@ -11,8 +11,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import support
-from hearth.agent import ScriptedApprover
-from hearth.cli import main
+from fullstop.agent import ScriptedApprover
+from fullstop.cli import main
 
 REPO = support.REPO_ROOT
 
@@ -81,7 +81,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue((Path(home) / "memory.md").exists())
         self.assertTrue((Path(home) / "notes" / "a.md").exists())
         self.assertEqual(approver.prompts, [])  # nothing needed approval
-        state = json.loads((Path(home) / ".hearth" / "state.json").read_text(
+        state = json.loads((Path(home) / ".fullstop" / "state.json").read_text(
             encoding="utf-8"))
         self.assertEqual(state["goal"], "override goal")
         self.assertEqual(state["manifest_path"], str(manifest.resolve()))
@@ -93,11 +93,14 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)  # guard-stop exits 0
         self.assertEqual(json.loads(out.strip().splitlines()[-1])["status"],
                          "stopped_max_steps")
-        # raise the limit and resume
+        # raise the limit and resume. v0.1.1 (FIXLIST item 2): editing the
+        # manifest changes its hash, so the resume carries the explicit
+        # operator override the config-tamper guard demands.
         data = json.loads(manifest.read_text(encoding="utf-8"))
         data["limits"]["max_steps"] = 8
         manifest.write_text(json.dumps(data), encoding="utf-8")
-        code, out, err = run_cli(["resume", "--manifest", str(manifest)],
+        code, out, err = run_cli(["resume", "--manifest", str(manifest),
+                                  "--allow-config-change"],
                                  approver=ScriptedApprover([]))
         self.assertEqual(code, 0, err)
         self.assertEqual(json.loads(out.strip().splitlines()[-1])["status"],
@@ -153,7 +156,7 @@ class CliTests(unittest.TestCase):
         run_cli(["run", "--manifest", str(manifest)],
                 approver=ScriptedApprover([]))
         proc = subprocess.run(
-            [sys.executable, "-m", "hearth", "status",
+            [sys.executable, "-m", "fullstop", "status",
              "--manifest", str(manifest)],
             cwd=str(REPO), capture_output=True, text=True, timeout=60)
         self.assertEqual(proc.returncode, 0,

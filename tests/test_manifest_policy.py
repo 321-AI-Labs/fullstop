@@ -8,10 +8,10 @@ import unittest
 from pathlib import Path
 
 import support
-from hearth.manifest import (ManifestError, load_manifest,
+from fullstop.manifest import (ManifestError, load_manifest,
                              manifest_from_dict)
-from hearth.policy import Policy, PolicyError, load_policy, policy_from_dict
-from hearth.types import ERROR_CODES, EVENTS, RUN_STATUSES
+from fullstop.policy import Policy, PolicyError, load_policy, policy_from_dict
+from fullstop.types import ERROR_CODES, EVENTS, RUN_STATUSES
 
 
 def base_manifest() -> dict:
@@ -145,8 +145,8 @@ class PolicyTests(unittest.TestCase):
 
     def test_builtin_protected_non_removable(self):
         p = policy_from_dict({})
-        self.assertTrue(p.is_protected(".hearth/activity.jsonl"))
-        self.assertTrue(p.is_protected(".HEARTH/STATE.JSON"))
+        self.assertTrue(p.is_protected(".fullstop/activity.jsonl"))
+        self.assertTrue(p.is_protected(".FULLSTOP/STATE.JSON"))
 
     def test_matching_casefolds_both_sides(self):
         p = policy_from_dict({"protected_paths": ["Secret-*.txt"],
@@ -202,9 +202,9 @@ class ErrorCodeProducerEnumeration(unittest.TestCase):
             produced.add("sandbox_escape")
 
             # --- protected_target: direct write-tool belt (literal protected)
-            from hearth.redact import Redactor
-            from hearth.tools.file import FileWriteTool
-            from hearth.types import ToolCall
+            from fullstop.redact import Redactor
+            from fullstop.tools.file import FileWriteTool
+            from fullstop.types import ToolCall
             pol = Policy(protected_paths=("secret-*.txt",))
             tool = FileWriteTool(home, Redactor({}), pol)
             result = tool.execute(ToolCall("file_write",
@@ -214,9 +214,9 @@ class ErrorCodeProducerEnumeration(unittest.TestCase):
             produced.add("protected_target")
 
             # --- unknown_tool: registry with a minted ALLOW for a ghost tool
-            from hearth.gate import Gate
-            from hearth.tools import build_registry
-            from hearth.types import Action, GateDecision
+            from fullstop.gate import Gate
+            from fullstop.tools import build_registry
+            from fullstop.types import Action, GateDecision
             gate = Gate(Policy(), home)
             registry = build_registry(home, Policy(), Redactor({}), gate.verify)
             ghost = ToolCall("ghost-tool", {})
@@ -227,14 +227,14 @@ class ErrorCodeProducerEnumeration(unittest.TestCase):
             produced.add("unknown_tool")
 
             # --- not_implemented
-            from hearth.tools.browser import BrowserTool
+            from fullstop.tools.browser import BrowserTool
             result = BrowserTool().execute(ToolCall("browser", {}))
             self.assertEqual(result.error_code, "not_implemented")
             produced.add("not_implemented")
 
             # --- command_not_allowed / shell_disabled / timeout / malformed
-            from hearth.policy import ShellPolicy
-            from hearth.tools.shell import ShellTool
+            from fullstop.policy import ShellPolicy
+            from fullstop.tools.shell import ShellTool
             denied = ShellTool(ShellPolicy(allow=("ok",), deny=("forbidden",)),
                                home, Redactor({}))
             self.assertEqual(
@@ -259,8 +259,8 @@ class ErrorCodeProducerEnumeration(unittest.TestCase):
             produced.add("timeout")
 
             # --- web codes via fake fetch
-            from hearth.policy import WebPolicy
-            from hearth.tools.web import WebFetchTool
+            from fullstop.policy import WebPolicy
+            from fullstop.tools.web import WebFetchTool
             fetch = support.fake_fetch(body=b"x")
             web = WebFetchTool(WebPolicy(deny_domains=("bad.example",)),
                                Redactor({}), fetch=fetch)
@@ -290,7 +290,7 @@ class ErrorCodeProducerEnumeration(unittest.TestCase):
             loop2 = support.build_loop(
                 home2,
                 [support.call_block("file_write",
-                                    {"path": ".hearth/state.json",
+                                    {"path": ".fullstop/state.json",
                                      "content": "x"}),
                  "done"],
                 policy=Policy())
@@ -301,7 +301,7 @@ class ErrorCodeProducerEnumeration(unittest.TestCase):
             produced.add("denied_by_policy")
 
             home3 = support.make_home(base, "home3")
-            from hearth.agent import ScriptedApprover
+            from fullstop.agent import ScriptedApprover
             loop3 = support.build_loop(
                 home3,
                 [support.call_block("file_write",

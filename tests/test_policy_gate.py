@@ -12,12 +12,12 @@ import unittest
 from pathlib import Path
 
 import support
-from hearth.agent import AgentLoop, ScriptedApprover
-from hearth.gate import Gate
-from hearth.policy import Policy, ShellPolicy, WebPolicy
-from hearth.redact import Redactor
-from hearth.tools import build_registry
-from hearth.types import Action, GateDecision, ToolCall
+from fullstop.agent import AgentLoop, ScriptedApprover
+from fullstop.gate import Gate
+from fullstop.policy import Policy, ShellPolicy, WebPolicy
+from fullstop.redact import Redactor
+from fullstop.tools import build_registry
+from fullstop.types import Action, GateDecision, ToolCall
 
 WRITE_ALL = Policy(write_preapproved=("**",))
 
@@ -40,7 +40,7 @@ class GateTableTests(unittest.TestCase):
         return self.gate.decide(ToolCall(name, args))
 
     def test_file_read_rows(self):
-        d = self.decide("file_read", {"path": ".hearth/activity.jsonl"})
+        d = self.decide("file_read", {"path": ".fullstop/activity.jsonl"})
         self.assertEqual(d.action, Action.APPROVAL_REQUIRED)
         self.assertIn("protected path read", d.reason)
         d = self.decide("file_read", {"path": "secret-a.txt"})
@@ -78,7 +78,7 @@ class GateTableTests(unittest.TestCase):
         self.assertEqual(d.reason, "note requires approval")
 
     def test_file_write_rows(self):
-        d = self.decide("file_write", {"path": ".hearth/state.json"})
+        d = self.decide("file_write", {"path": ".fullstop/state.json"})
         self.assertEqual(d.action, Action.DENY)
         self.assertIn("protected path", d.reason)
         d = self.decide("file_write", {"path": "secret-a.txt"})
@@ -102,12 +102,23 @@ class GateTableTests(unittest.TestCase):
             self.decide("shell", {"argv": ["rm", "-rf"]}).action, Action.DENY)
         self.assertIn("command denied", self.decide(
             "shell", {"argv": ["rm", "-rf"]}).reason)
+        # v0.1.1 (FIXLIST item 7): a bare string entry pre-approves ONLY the
+        # bare invocation — arguments always route to approval. The old
+        # argv[0]-only pre-approval of ["ls", "-la"] WAS the defect.
         d = self.decide("shell", {"argv": ["ls", "-la"]})
-        self.assertEqual(d.action, Action.ALLOW)
-        self.assertEqual(d.reason, "pre-approved command")
+        self.assertEqual(d.action, Action.APPROVAL_REQUIRED)
+        self.assertIn("command requires approval", d.reason)
         d = self.decide("shell", {"argv": [sys.executable, "-c", "pass"]})
         self.assertEqual(d.action, Action.APPROVAL_REQUIRED)
         self.assertIn("command requires approval", d.reason)
+        # Constrained entries pre-approve exactly their program + args.
+        constrained = Gate(
+            Policy(shell=ShellPolicy(
+                allow=({"program": sys.executable, "args": ["--version"]},))),
+            self.home)
+        self.assertEqual(constrained.decide(ToolCall(
+            "shell", {"argv": [sys.executable, "--version"]})).action,
+            Action.ALLOW)
 
     def test_web_rows(self):
         for bad in ("ftp://x/", "not a url", "https:///nohost", 5):
@@ -203,12 +214,12 @@ class ApprovalSemanticsTests(unittest.TestCase):
 
     def test_approval_executes_protected_read(self):
         home = self.home("pread")
-        (home / ".hearth" / "protected.txt").write_text(
+        (home / ".fullstop" / "protected.txt").write_text(
             "operator-approved read", encoding="utf-8")
         loop = support.build_loop(
             home,
             [support.call_block("file_read",
-                                {"path": ".hearth/protected.txt"}),
+                                {"path": ".fullstop/protected.txt"}),
              "done"],
             policy=Policy(), approver=ScriptedApprover([True]))
         loop.run(loop.new_state())
@@ -228,7 +239,7 @@ class ApprovalSemanticsTests(unittest.TestCase):
         gate = Gate(policy, home)
         for call in (
             ToolCall("file_write", {"path": "secret-a.txt", "content": "x"}),
-            ToolCall("file_write", {"path": ".hearth/x", "content": "x"}),
+            ToolCall("file_write", {"path": ".fullstop/x", "content": "x"}),
             ToolCall("shell", {"argv": ["rm", "-rf"]}),
             ToolCall("web_fetch", {"url": "https://bad.example/a"}),
         ):

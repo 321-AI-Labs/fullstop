@@ -7,10 +7,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import support  # noqa: F401  (sys.path bootstrap for `import hearth`)
+import support  # noqa: F401  (sys.path bootstrap for `import fullstop`)
 
-from hearth.activity import ActivityLog, ActivityLogError
-from hearth.redact import Redactor
+from fullstop.activity import ActivityLog, ActivityLogError
+from fullstop.redact import Redactor
 
 
 class ActivityLogTests(unittest.TestCase):
@@ -111,13 +111,13 @@ class ActivityLogTests(unittest.TestCase):
 
     def test_scrub_and_truncate_at_write_time(self):
         marker = "sk-FAKE-value-123"
-        redactor = Redactor({"HEARTH_KEY": marker})
+        redactor = Redactor({"FULLSTOP_KEY": marker})
         log = self._log(redactor=redactor, truncate_chars=50)
         log.append("model_reply", content=f"leak {marker} here")
         log.append("model_reply", content="y" * 500)
         text = self.path.read_text(encoding="utf-8")
         self.assertNotIn(marker, text)
-        self.assertIn("[REDACTED:HEARTH_KEY]", text)
+        self.assertIn("[REDACTED:FULLSTOP_KEY]", text)
         entries = list(log.entries())
         self.assertLessEqual(len(entries[1]["content"]), 50 + 40)  # + truncation note
         self.assertIn("truncated", entries[1]["content"])

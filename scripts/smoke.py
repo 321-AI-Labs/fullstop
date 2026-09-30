@@ -6,7 +6,7 @@ the escape write rides the pre-approved glob 'notes/../../escape.txt'
 (fnmatch True vs 'notes/**', verified) so it consumes NO prompt and is stopped
 by the sandbox; the approved fetch is served by an injected fake through the
 AgentLoop fetch seam (socketless AND real, not theater). Exit 0 iff all 8
-assertions pass. HEARTH_SMOKE_KEEP=1 keeps the workspace.
+assertions pass. FULLSTOP_SMOKE_KEEP=1 keeps the workspace.
 """
 
 import json
@@ -19,13 +19,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from hearth.activity import ActivityLog                      # noqa: E402
-from hearth.agent import AgentLoop, ScriptedApprover          # noqa: E402
-from hearth.manifest import Identity, Limits, Manifest, ProviderConfig  # noqa: E402
-from hearth.policy import policy_from_dict                    # noqa: E402
-from hearth.provider import ScriptedModel                     # noqa: E402
-from hearth.redact import Redactor                            # noqa: E402
-from hearth.state import activity_path                        # noqa: E402
+from fullstop.activity import ActivityLog                      # noqa: E402
+from fullstop.agent import AgentLoop, ScriptedApprover          # noqa: E402
+from fullstop.manifest import Identity, Limits, Manifest, ProviderConfig  # noqa: E402
+from fullstop.policy import policy_from_dict                    # noqa: E402
+from fullstop.provider import ScriptedModel                     # noqa: E402
+from fullstop.redact import Redactor                            # noqa: E402
+from fullstop.state import activity_path                        # noqa: E402
 
 
 def call_block(name: str, args: dict) -> str:
@@ -39,7 +39,7 @@ def main() -> int:
     out_root.mkdir(exist_ok=True)
     work = out_root / f"run-{uuid.uuid4().hex[:8]}"
     home = work / "home"
-    (home / ".hearth").mkdir(parents=True)
+    (home / ".fullstop").mkdir(parents=True)
     (home / "fixture.txt").write_text("smoke fixture content", encoding="utf-8")
 
     def files_outside_home():
@@ -85,7 +85,7 @@ def main() -> int:
         policy_path=None,
         inline_policy=policy_data,
         provider=ProviderConfig(type="scripted",
-                                script_path=home / ".hearth" / "script.json"),
+                                script_path=home / ".fullstop" / "script.json"),
         limits=Limits(max_steps=12),
     )
 
@@ -145,7 +145,7 @@ def main() -> int:
     print(f"status={state.status} steps_done={state.steps_done} "
           f"prompts={len(approver.prompts)} fetch_calls={len(fetch_calls)}")
 
-    if os.environ.get("HEARTH_SMOKE_KEEP") != "1":
+    if os.environ.get("FULLSTOP_SMOKE_KEEP") != "1":
         shutil.rmtree(work, ignore_errors=True)
     return 1 if failed else 0
 

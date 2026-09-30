@@ -1,8 +1,8 @@
-"""Shared helpers for the hearth test suite.
+"""Shared helpers for the fullstop test suite.
 
 No tests/__init__.py by design — `python -m unittest discover -s tests` from
 the repo root puts tests/ on sys.path. The repo root itself is bootstrapped
-below so `import hearth` works regardless of the runner's CWD or
+below so `import fullstop` works regardless of the runner's CWD or
 PYTHONSAFEPATH/-P behavior (the suite once failed with ModuleNotFoundError
 when a runner launched discovery without CWD on sys.path).
 """
@@ -13,19 +13,19 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Bootstrap BEFORE any hearth import: make the repo root importable no matter
+# Bootstrap BEFORE any fullstop import: make the repo root importable no matter
 # how discovery was launched. Every test module imports support first.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hearth.activity import ActivityLog
-from hearth.agent import AgentLoop
-from hearth.manifest import Identity, Limits, Manifest, ProviderConfig
-from hearth.policy import Policy
-from hearth.provider import ScriptedModel
-from hearth.redact import Redactor
-from hearth.state import activity_path
+from fullstop.activity import ActivityLog
+from fullstop.agent import AgentLoop
+from fullstop.manifest import Identity, Limits, Manifest, ProviderConfig
+from fullstop.policy import Policy
+from fullstop.provider import ScriptedModel
+from fullstop.redact import Redactor
+from fullstop.state import activity_path
 
 # Symlink tests skip (never silently) when the platform refuses; the count is
 # carried in the skip message.
@@ -38,7 +38,7 @@ def temp_dir():
 
 def make_home(base: Path, name: str = "home") -> Path:
     home = base / name
-    (home / ".hearth").mkdir(parents=True)
+    (home / ".fullstop").mkdir(parents=True, exist_ok=True)
     return home
 
 
@@ -78,7 +78,7 @@ def build_loop(home: Path, replies, policy: Policy | None = None,
                log: ActivityLog | None = None):
     """Build an AgentLoop over a temp workspace with a scripted model."""
     if manifest is None:
-        manifest = script_manifest(home, write_script(home / ".hearth", replies))
+        manifest = script_manifest(home, write_script(home / ".fullstop", replies))
     if provider is None:
         provider = ScriptedModel(list(replies))
     redactor = redactor or Redactor({})
@@ -115,6 +115,34 @@ def fake_fetch(status: int = 200, content_type: str = "text/plain",
             raise exc
         return status, content_type, body
     return _fetch
+
+
+def gate_harness(tmp: Path, policy=None):
+    """Gate + registry over a fresh temp home, for fix-list tests that drive
+    the decide->approve->execute boundary directly (as test_tools does)."""
+    from fullstop.gate import Gate
+    from fullstop.policy import Policy as _Policy
+    from fullstop.tools import build_registry as _build
+
+    class _Harness:
+        def __init__(self, testcase_tmp, pol):
+            self.home = make_home(Path(testcase_tmp))
+            self.policy = pol or _Policy()
+            self.gate = Gate(self.policy, self.home)
+            self.registry = _build(self.home, self.policy, Redactor({}),
+                                   self.gate.verify)
+
+        def approved(self, call):
+            from fullstop.types import Action
+            decision = self.gate.decide(call)
+            if decision.action is Action.APPROVAL_REQUIRED:
+                decision = self.gate.resolve_approval(call, True)
+            return decision
+
+        def execute(self, call):
+            return self.registry.execute(call, self.approved(call))
+
+    return _Harness(tmp, policy)
 
 
 def try_symlink(testcase, target, link: Path, label: str) -> None:

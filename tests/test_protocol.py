@@ -3,9 +3,9 @@
 import unittest
 
 import support
-from hearth.protocol import (TOOL_CALL_CLOSE, TOOL_CALL_OPEN,
+from fullstop.protocol import (TOOL_CALL_CLOSE, TOOL_CALL_OPEN,
                              format_observation, parse_tool_calls, summary)
-from hearth.types import ToolCall, ToolResult
+from fullstop.types import ToolCall, ToolResult
 
 
 def block(body: str) -> str:

@@ -11,8 +11,8 @@ import urllib.error
 from pathlib import Path
 
 import support
-from hearth.manifest import ProviderConfig
-from hearth.provider import (OpenAICompatProvider, ProviderError,
+from fullstop.manifest import ProviderConfig
+from fullstop.provider import (OpenAICompatProvider, ProviderError,
                              ScriptedModel, ScriptedModelExhausted,
                              build_provider)
 
@@ -25,7 +25,7 @@ class _FakeResponse:
     def getcode(self):
         return self._code
 
-    def read(self):
+    def read(self, n=-1):  # real response objects accept a size limit
         return self._payload
 
 
@@ -76,7 +76,7 @@ class ScriptedModelTests(unittest.TestCase):
 
 
 class OpenAICompatTests(unittest.TestCase):
-    ENV = "HEARTH_PROVIDER_TEST_KEY"
+    ENV = "FULLSTOP_PROVIDER_TEST_KEY"
 
     def setUp(self):
         self.marker = "sk-FAKE-provider-key"
@@ -156,7 +156,9 @@ class OpenAICompatTests(unittest.TestCase):
             captured, code=503, payload={}))
         with self.assertRaises(ProviderError) as ctx:
             provider.complete([{"role": "user", "content": "q"}])
-        self.assertEqual(str(ctx.exception), "http 503")
+        # v0.1.2 (FIXLIST2 item 2): the code is carried AND, when the
+        # endpoint sent one, the body (this fixture answers "{}").
+        self.assertIn("http 503", str(ctx.exception))
         self.assertNotIn(self.marker, str(ctx.exception))
 
     def test_http_error_object_raises_http_code(self):

@@ -5,10 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import support  # noqa: F401  (sys.path bootstrap for `import hearth`)
+import support  # noqa: F401  (sys.path bootstrap for `import fullstop`)
 
-from hearth.redact import Redactor
-from hearth.state import (RunState, activity_path, checkpoint_path,
+from fullstop.redact import Redactor
+from fullstop.state import (RunState, activity_path, checkpoint_path,
                           load_checkpoint, save_checkpoint)
 
 
@@ -32,9 +32,9 @@ class StateTests(unittest.TestCase):
 
     def test_canonical_paths(self):
         self.assertEqual(checkpoint_path(self.home),
-                         self.home / ".hearth" / "state.json")
+                         self.home / ".fullstop" / "state.json")
         self.assertEqual(activity_path(self.home),
-                         self.home / ".hearth" / "activity.jsonl")
+                         self.home / ".fullstop" / "activity.jsonl")
 
     def test_round_trip_fidelity(self):
         state = make_state()
@@ -68,10 +68,10 @@ class StateTests(unittest.TestCase):
         marker = "sk-FAKE-state"
         state = make_state()
         state.messages.append({"role": "assistant", "content": f"leak {marker}"})
-        save_checkpoint(state, self.path, Redactor({"HEARTH_KEY": marker}))
+        save_checkpoint(state, self.path, Redactor({"FULLSTOP_KEY": marker}))
         text = self.path.read_text(encoding="utf-8")
         self.assertNotIn(marker, text)
-        self.assertIn("[REDACTED:HEARTH_KEY]", text)
+        self.assertIn("[REDACTED:FULLSTOP_KEY]", text)
         # the in-memory state is untouched
         self.assertIn(marker, state.messages[-1]["content"])
 

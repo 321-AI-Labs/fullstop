@@ -1,7 +1,7 @@
 """DoD#5: machine-checked zero-third-party imports.
 
 ast-walk of every repo .py file; absolute imports must be stdlib
-(sys.stdlib_module_names) or local {hearth, support}; hearth modules must
+(sys.stdlib_module_names) or local {fullstop, support}; fullstop modules must
 import their siblings RELATIVELY only.
 """
 
@@ -13,8 +13,8 @@ from pathlib import Path
 import support
 
 REPO = support.REPO_ROOT
-LOCAL = {"hearth", "support"}
-PKG_DIR = REPO / "hearth"
+LOCAL = {"fullstop", "support"}
+PKG_DIR = REPO / "fullstop"
 
 
 class ImportTests(unittest.TestCase):
@@ -48,23 +48,23 @@ class ImportTests(unittest.TestCase):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         self.assertFalse(
-                            alias.name.split(".")[0] == "hearth",
+                            alias.name.split(".")[0] == "fullstop",
                             f"{path}: import siblings relatively, got "
                             f"'import {alias.name}'")
                 elif isinstance(node, ast.ImportFrom) and node.level == 0:
                     self.assertFalse(
-                        (node.module or "").split(".")[0] == "hearth",
+                        (node.module or "").split(".")[0] == "fullstop",
                         f"{path}: import siblings relatively, got "
                         f"'from {node.module} import ...'")
 
     def test_all_repo_modules_import(self):
         # Compile-level import sanity for every local module named above.
-        import hearth  # noqa: F401
+        import fullstop  # noqa: F401
         for mod in ("types", "redact", "manifest", "policy", "gate", "sandbox",
                     "protocol", "activity", "state", "provider", "agent", "cli"):
-            __import__(f"hearth.{mod}")
+            __import__(f"fullstop.{mod}")
         for mod in ("base", "file", "shell", "web", "note", "browser"):
-            __import__(f"hearth.tools.{mod}")
+            __import__(f"fullstop.tools.{mod}")
 
     def _check(self, module: str, path: Path):
         root = module.split(".")[0]
