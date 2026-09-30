@@ -159,7 +159,7 @@ def _pick_approver(args, injected, home: Path, redactor: Redactor):
         return injected
     if getattr(args, "ui", False):
         return UiApprover(home, redactor=redactor,
-                          timeout_s=args.approval_timeout)
+                          timeout_s=args.approval_timeout, owner=True)
     return InteractiveApprover()
 
 

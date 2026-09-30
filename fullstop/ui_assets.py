@@ -601,6 +601,14 @@ function renderEvent(e) {
 /* -- approval cards --------------------------------------------------------------- */
 function renderApprovals(cards) {
   const host = $('#approvals');
+  // Rebuild ONLY when the card set actually changes: a poll-driven rebuild
+  // every cycle would churn the DOM, drop focus mid-keystroke, and yank the
+  // buttons out from under a click (keyboard-operable law).
+  const sig = cards.map((c) =>
+    c.id + ':' + (state.answered[c.id] ? 'a' : c.expired ? 'e' : 'p')).join('|');
+  if (sig === (host.dataset.sig || '') && host.children.length === cards.length)
+    return;
+  host.dataset.sig = sig;
   host.replaceChildren();
   if (!cards.length) return;
   for (const card of cards) {

@@ -171,20 +171,28 @@ class UiApproverProtocolTests(unittest.TestCase):
         write_decision(self.rdir, card_id, True)
         self.assertEqual(approver.pending_cards(), [])
         t.join(timeout=5)
-        # stale-by-timeout cards are marked expired, still visible (honest)
-        approver2 = self.make(timeout_s=0.05)
-        t2 = approve_async(approver2, self.call, self.decision)
-        self.wait_pending(approver2)
-        t2.join(timeout=5)
-        # approver2 cleaned up on timeout; plant one manually to test expiry
-        stale = dict(approver2.last_card)
+        # expired cards are HIDDEN: the approver that would consume an
+        # answer has timed out or died; a dead card must not invite answers
+        stale = dict(approver.last_card)
         write_decision(self.rdir, "0" * 16, True)  # unrelated, cleaned below
         pending = pending_path(self.rdir, stale["id"])
         pending.write_text(json.dumps(stale), encoding="utf-8")
-        cards = approver.pending_cards(now=time.time() + 3600)
-        self.assertTrue(cards and cards[0].get("expired"))
+        self.assertEqual(approver.pending_cards(now=time.time() + 3600), [])
+        self.assertEqual(approver.pending_cards(), [stale])  # inside window
         pending.unlink()
         decision_path(self.rdir, "0" * 16).unlink()
+
+    def test_owner_sweeps_dead_cards_reader_does_not(self):
+        dead = "feedface" * 2
+        write_decision(self.rdir, dead, True)
+        (self.rdir / f"pending-{dead}.json").write_text("{}", encoding="utf-8")
+        # a read-side construction (dashboard) must NOT delete live cards
+        reader = self.make()
+        self.assertTrue(decision_path(self.rdir, dead).exists())
+        # the starting run's own approver sweeps the dead prior run's files
+        owner = self.make(owner=True)
+        self.assertFalse(decision_path(self.rdir, dead).exists())
+        self.assertFalse(pending_path(self.rdir, dead).exists())
 
 
 class UnattendedSemanticsTests(unittest.TestCase):

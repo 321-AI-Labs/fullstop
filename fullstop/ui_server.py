@@ -258,6 +258,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(ui.log_after(after))
         elif path == "/api/verify":
             self._send_json(ui.verify_chain())
+        elif path == "/favicon.ico":
+            self._send(b"", "image/x-icon", 204)  # no icon; no console 404
         else:
             self._send_json({"error": ui_strings.ERROR_NOT_FOUND.format(
                 path=path)}, 404)

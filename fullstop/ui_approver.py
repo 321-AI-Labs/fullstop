@@ -109,12 +109,21 @@ def sweep_stale(directory: Path, now: float | None = None) -> int:
 
 
 class UiApprover:
-    """Blocks on a decision file; fail-closed to ``stopped_approval``."""
+    """Blocks on a decision file; fail-closed to ``stopped_approval``.
+
+    ``owner=True`` marks THE approver of a starting run: it sweeps every
+    pending/decision file in its rendezvous dir at construction — a prior
+    run on this home is definitionally dead, and its leftover cards could
+    otherwise confuse a dashboard into answering a ghost. Read-side
+    constructions (the dashboard's card reader) pass owner=False and only
+    clean files past the day-long stale age, so a viewer can never delete a
+    live run's card."""
 
     def __init__(self, home: Path, redactor: Redactor | None = None,
                  timeout_s: float = DEFAULT_TIMEOUT_S,
                  poll_interval_s: float = POLL_INTERVAL_S,
-                 rendezvous_dir: Path | None = None) -> None:
+                 rendezvous_dir: Path | None = None,
+                 owner: bool = False) -> None:
         self.home = Path(home)
         self._redactor = redactor
         self.timeout_s = float(timeout_s)
@@ -123,7 +132,21 @@ class UiApprover:
                           else rendezvous_dir_for(self.home))
         self.unattended = False
         self.last_card: dict | None = None
+        if owner:
+            self._sweep_all()
         sweep_stale(self.directory)
+
+    def _sweep_all(self) -> None:
+        try:
+            paths = list(self.directory.glob("pending-*.json")) + \
+                list(self.directory.glob("decision-*.json"))
+        except OSError:
+            return
+        for path in paths:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                continue
 
     # -- card construction ----------------------------------------------------
 
@@ -204,7 +227,10 @@ class UiApprover:
 
     def pending_cards(self, now: float | None = None) -> list[dict]:
         """Valid, un-expired, not-yet-decided cards in the rendezvous dir —
-        what the dashboard shows. Malformed files are skipped, never shown."""
+        what the dashboard shows. Malformed files are skipped, never shown.
+        Expired cards are hidden: the approver that would consume an answer
+        has already timed out (or its process died), so the card is dead —
+        showing it invites answers no one will read."""
         now = time.time() if now is None else now
         cards: list[dict] = []
         try:
@@ -227,7 +253,6 @@ class UiApprover:
             except (ValueError, TypeError, OverflowError):
                 continue
             if now - written > timeout_s:
-                card = dict(card)
-                card["expired"] = True
+                continue
             cards.append(card)
         return cards

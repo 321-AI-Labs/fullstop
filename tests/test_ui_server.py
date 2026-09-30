@@ -137,6 +137,8 @@ class ReadRouteTests(unittest.TestCase):
         self.assertIn("javascript", ctype)
         status, body, _ = fix.get("/nope")
         self.assertEqual(status, 404)
+        status, raw, _ = fix.get("/favicon.ico")
+        self.assertEqual(status, 204)  # no console 404 noise
 
     def test_verify_reports_first_bad_seq(self):
         with support.temp_dir() as tmp:

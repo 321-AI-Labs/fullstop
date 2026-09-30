@@ -251,9 +251,13 @@ class ShippedDemoTests(unittest.TestCase):
         payload = self._run_demo("writer-approval.json", [True, False])
         self.assertEqual(payload["status"], "completed")
 
-    @classmethod
-    def tearDownClass(cls):
-        # remove the demo workspaces the runs created (gitignored anyway)
+    def setUp(self):
+        # hermetic demos: no leftover checkpoint/log/cards from a previous
+        # run of the same example (manual or otherwise)
+        for d in EXAMPLES.glob("workspace-*"):
+            shutil.rmtree(d, ignore_errors=True)
+
+    def tearDown(self):
         for d in EXAMPLES.glob("workspace-*"):
             shutil.rmtree(d, ignore_errors=True)
 
