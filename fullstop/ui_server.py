@@ -8,7 +8,7 @@ Laws implemented here (UI-CHARTER-V02 architecture):
   header is not this loopback origin are refused (DNS-rebinding guard), and
   every POST must carry the ``X-Fullstop-UI`` header, which cross-site form
   posts cannot set (CSRF guard). Decisions are additionally bound to a
-  128-bit per-prompt id the page can only learn by reading loopback JSON.
+  64-bit per-prompt id the page can only learn by reading loopback JSON.
 - **One write surface.** GET routes touch nothing; POST /api/approve writes
   ``decision-<id>.json`` through ui_approver.write_decision; the wizard
   route writes one NEW manifest file when asked explicitly (scope 4). The
@@ -27,8 +27,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import ui_assets, ui_model, ui_strings
-from .ui_approver import (UiApprover, pending_path, valid_id,
-                          write_decision, rendezvous_dir_for)
+from .ui_approver import (UiApprover, valid_id, write_decision,
+                          rendezvous_dir_for)
 from .ui_wizard import save_manifest, validate_form
 
 DEFAULT_PORT = 8624
@@ -109,7 +109,13 @@ class UiServer:
         write_decision(self._rendezvous, approval_id, approve)
 
     def pending_exists(self, approval_id: str) -> bool:
-        return pending_path(self._rendezvous, approval_id).exists()
+        """True only while a LIVE, unanswered card carries this id. The read
+        side (ui_approver.pending_cards) hides expired cards because the
+        approver that would consume an answer has already timed out; the
+        write side must agree, so an expired pending earns the same 404 as
+        a card that never existed."""
+        return any(card["id"] == approval_id
+                   for card in self._pending_reader.pending_cards())
 
     # -- lifecycle ---------------------------------------------------------------
 

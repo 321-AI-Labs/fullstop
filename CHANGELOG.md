@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.0
+
+- The loopback activity view: `python -m fullstop ui`, plus `run --ui` and
+  `resume --ui`. A stdlib-served dashboard (127.0.0.1 only, deliberately no
+  token; see the README's trust-boundary disclosure) showing the
+  hash-chained activity log, run history with chain verify, browser
+  approval cards over the decision-file protocol, and a new-run manifest
+  wizard (inline policy, strict validators, new-file-only save).
+- Review-fold fixes: approval-id docstrings corrected to 64 bits; every
+  user-visible literal moved into `ui_strings.py`; a script-breakout guard
+  on the injected strings blob; `pending_exists` is expiry-aware so an
+  expired card earns the 404; the wizard save is atomically no-clobber
+  (`os.link`), so a file created between check and write is never
+  overwritten.
+
 ## v0.1.2
 
 - Fences are recognized **anywhere** in a reply, not as whole lines. Found

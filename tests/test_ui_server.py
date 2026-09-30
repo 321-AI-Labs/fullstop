@@ -8,13 +8,14 @@ import json
 import threading
 import time
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import support
 from fullstop.activity import ActivityLog
 from fullstop.policy import policy_from_dict
 from fullstop.types import Action, GateDecision, ToolCall
-from fullstop.ui_approver import (UiApprover, decision_path,
+from fullstop.ui_approver import (UiApprover, decision_path, pending_path,
                                   rendezvous_dir_for)
 from fullstop.ui_server import UiServer
 
@@ -238,6 +239,40 @@ class ApproveRouteTests(unittest.TestCase):
             body={"id": "not-hex", "decision": "approve"},
             headers={"X-Fullstop-UI": "1"})
         self.assertEqual(status, 400)
+
+    def test_expired_pending_gets_the_404(self):
+        """An expired card is dead: the approver that would consume the
+        answer has timed out, so the write side agrees with the read side
+        (pending_cards hides it) and refuses the answer."""
+        server = self._serve(self.home, self.rdir)
+        expired_id = "e" * 16
+        self.rdir.mkdir(parents=True, exist_ok=True)
+        card = {"id": expired_id, "home": str(self.home),
+                "tool": "file_write", "reason": "r", "rendered": "x",
+                "ts": (datetime.now(timezone.utc)
+                       - timedelta(seconds=3600)).isoformat(),
+                "timeout_s": 1}
+        pending_path(self.rdir, expired_id).write_text(
+            json.dumps(card), encoding="utf-8")
+        status, body, _ = request(
+            server.port, "POST", "/api/approve",
+            body={"id": expired_id, "decision": "approve"},
+            headers={"X-Fullstop-UI": "1"})
+        self.assertEqual(status, 404)
+        self.assertFalse(decision_path(self.rdir, expired_id).exists())
+        # and a live card for the same shape is still answerable
+        live_id = "f" * 16
+        card["id"] = live_id
+        card["ts"] = datetime.now(timezone.utc).isoformat()
+        card["timeout_s"] = 300
+        pending_path(self.rdir, live_id).write_text(
+            json.dumps(card), encoding="utf-8")
+        status, body, _ = request(
+            server.port, "POST", "/api/approve",
+            body={"id": live_id, "decision": "deny"},
+            headers={"X-Fullstop-UI": "1"})
+        self.assertEqual(status, 200)
+        self.assertTrue(decision_path(self.rdir, live_id).exists())
 
 
 class WizardRouteTests(unittest.TestCase):

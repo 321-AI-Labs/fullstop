@@ -6,8 +6,10 @@ import json
 import os
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import support
+from fullstop import ui_strings
 from fullstop.manifest import load_manifest
 from fullstop.policy import policy_from_dict
 from fullstop.ui_wizard import (_map_errors, build_manifest_dict,
@@ -132,6 +134,31 @@ class SaveLawTests(unittest.TestCase):
         self.assertFalse(verdict["ok"])
         self.assertTrue(verdict["field_errors"]["savePath"])
         self.assertEqual(path.read_text(encoding="utf-8"), "{}")
+
+    def test_existing_file_never_modified_even_in_the_race_gap(self):
+        """The no-clobber guarantee is atomic (os.link fails on an existing
+        destination), not check-then-write. Simulate the TOCTOU gap: the
+        exists() check passes while the file is physically present, and the
+        save must still refuse with the friendly reason, leave the file
+        byte-identical, and leave no tmp behind."""
+        path = Path(self.form["savePath"])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"original": true}', encoding="utf-8")
+        real_exists = Path.exists
+
+        def fake_exists(p):
+            if p == path:
+                return False  # the gap: the check sees nothing; disk disagrees
+            return real_exists(p)
+
+        with mock.patch.object(Path, "exists", fake_exists):
+            verdict = save_manifest(self.form)
+        self.assertFalse(verdict["ok"])
+        self.assertEqual(verdict["field_errors"]["savePath"],
+                         [ui_strings.WIZARD_PATH_EXISTS])
+        self.assertEqual(path.read_text(encoding="utf-8"),
+                         '{"original": true}')
+        self.assertEqual(list(path.parent.glob("*.tmp")), [])
 
     def test_refuses_save_inside_home(self):
         home = Path(self.tmp.name) / "agent-home"

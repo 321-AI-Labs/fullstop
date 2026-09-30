@@ -277,10 +277,24 @@ def save_manifest(form: dict) -> dict:
         names.append(api_env)
     text = json.dumps(manifest, indent=2)
     text = Redactor.from_env(names).scrub(text)  # values can never persist
+    # No-clobber must be ATOMIC, not a check-then-write: a file created in
+    # the gap between the path.exists() check above and the write must never
+    # be overwritten. Write a tmp sibling (same directory, so same volume)
+    # and hard-link it into place: os.link fails with FileExistsError if the
+    # destination exists, on POSIX and on NTFS alike. Filesystems without
+    # hard links fail closed with an OSError; nothing is ever clobbered.
+    tmp = path.with_name(path.name + ".tmp")
     try:
-        tmp = path.with_name(path.name + ".tmp")
         tmp.write_text(text + "\n", encoding="utf-8")
-        os.replace(tmp, path)
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            return {"ok": False,
+                    "field_errors": {
+                        "savePath": [ui_strings.WIZARD_PATH_EXISTS]},
+                    "global_errors": []}
+        finally:
+            tmp.unlink(missing_ok=True)
     except OSError as e:
         return {"ok": False, "field_errors": {},
                 "global_errors": [f"{type(e).__name__}: {e}"]}

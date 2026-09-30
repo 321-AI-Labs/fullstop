@@ -1,6 +1,6 @@
 [project]
 name = "fullstop"
-version = "0.1.2"
+version = "0.2.0"
 description = "A zero-dependency Python runtime for always-on agents: identity manifests, a default-deny policy gate with human approval, a fenced tool-call protocol, a hash-chained activity log, and crash-safe checkpoint/resume with replay"
 readme = "README.md"
 license = { text = "MIT" }

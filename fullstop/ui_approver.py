@@ -13,7 +13,7 @@ Fail-closed contract: on timeout, on an unreadable/writable-nowhere channel,
 or on any OSError, the approver sets ``unattended = True`` and returns False,
 which the loop's existing check (agent.py) turns into ``stopped_approval`` —
 exactly the semantics of the non-tty console approver. A forged or
-wrong-id decision file is ignored: the id is 128 bits of secrets randomness
+wrong-id decision file is ignored: the id is 64 bits of secrets randomness
 minted per prompt, bound into both filenames, and the gate's hard denials
 never reach an approver at all (gate law: approval can only upgrade
 APPROVAL_REQUIRED, never DENY).

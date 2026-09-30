@@ -5,4 +5,4 @@ package deliberately exports nothing but its version; import submodules
 directly.
 """
 
-__version__: str = "0.1.2"
+__version__: str = "0.2.0"

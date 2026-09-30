@@ -31,7 +31,9 @@ without double execution is demonstrated by
 It is **not**: a hosted cloud product; a real browser in v0.1 (`web_fetch`
 only — the `browser` tool interface is defined but unimplemented, and saying
 so is enforced by `tests/test_tools.py::BrowserToolTests`); a multi-agent
-orchestrator; a plugin marketplace; a streaming or GUI anything; wired to
+orchestrator; a plugin marketplace; streaming output or a desktop GUI (the
+loopback activity view documented below is a local dashboard served to your
+browser, not either); wired to
 any non-OpenAI-compatible provider protocol (Anthropic native etc. — only
 OpenAI-compatible chat-completions endpoints, plus the scripted mock).
 
@@ -161,6 +163,62 @@ anchors the run to the edited rules from that resume onward.
 `completed`, `failed`, and `script_exhausted` runs are terminal — `resume`
 on them does nothing except re-log and exit (nonzero for `failed`). There
 is no supported retry of a failed run; start a new run (`run`) instead.
+
+## The activity view (loopback dashboard)
+
+`python -m fullstop ui --manifest <path.json>` serves a dashboard for that
+manifest's workspace and opens it in a browser (`--no-browser` prints the
+URL instead). `run --ui` and `resume --ui` serve the same dashboard while a
+run executes: the run stays foreground and the dashboard lives on daemon
+threads, polling the checkpoint and log files the loop already writes; the
+server never imports the agent loop (`tests/test_ui_cli.py`).
+
+What it shows:
+
+- the current run: goal, status, steps, cost, tokens, and the checkpointed
+  failure line if any;
+- the activity log as written: narration (model replies), tool calls, gate
+  decisions, approvals, sandbox blocks, guard trips, run end
+  (`tests/test_ui_model.py`);
+- a history panel of the runs recorded in this workspace, and a verify
+  button that re-checks the hash chain and reports the first broken entry
+  (`tests/test_ui_server.py`);
+- approval cards. With `--ui`, an APPROVAL_REQUIRED decision renders the
+  complete request (the full `render_request` output, never a summary) in
+  the browser. Approvals use a decision-file protocol: the pending card is
+  written to a rendezvous directory under the OS temp dir, deliberately
+  OUTSIDE the workspace sandbox so the agent's own file tools can never
+  reach it, let alone forge an approval; each prompt carries a 64-bit
+  random id bound into both filenames; a wrong-id or forged decision file
+  is ignored; and on timeout (default 300 s, `--approval-timeout`) the run
+  fails closed into `stopped_approval`, exactly like an unattended console
+  (`tests/test_ui_approver.py`, `tests/test_ui_cli.py`);
+- a new-run wizard: builds ONE manifest file with an inline policy,
+  validated by the same strict validators the runtime uses (errors surface
+  field-level and verbatim), saves to new files only (an existing path is
+  refused and never modified; the no-clobber write is atomic), and carries
+  credential env var NAMES only; the written bytes are scrubbed through
+  `Redactor.from_env`, so an environment value can never be persisted even
+  if pasted into a text field (`tests/test_ui_wizard.py`).
+
+Trust boundaries, stated plainly:
+
+- the server binds 127.0.0.1 only and there is NO host flag anywhere; a
+  `--host` argument is rejected by the CLI parser
+  (`tests/test_ui_server.py`);
+- requests whose Host header is not this loopback origin are refused
+  (DNS-rebinding guard), and every POST must carry the `X-Fullstop-UI`
+  header that cross-site form posts cannot set (CSRF guard)
+  (`tests/test_ui_server.py`);
+- the dashboard deliberately carries NO token. This is a deliberate
+  contrast with keysmith's token-gated dashboard, not an oversight: any
+  process running as the local user can read the page and answer an
+  approval card. If that is not acceptable on your machine, do not use
+  `--ui`;
+- the only writes the dashboard can perform are the decision file and,
+  when explicitly asked through the wizard, one new manifest file; it
+  holds no code path that opens checkpoints, manifests, or the log for
+  writing (`tests/test_ui_server.py`).
 
 ## Manifest schema (strict; unknown keys rejected)
 
@@ -365,6 +423,12 @@ because the repo is stdlib-only.
 | Error observations delimited per session, capped like ok-output | `tests/test_r2_05_error_observation_frame.py` |
 | Resume of a pre-v0.1.2 system-only checkpoint seeds the goal from the persisted goal; no double seed | `tests/test_fix_22_resume_seed_guard.py` |
 | Stray-marker cliffs pinned: bare mention → malformed + later block parses; quoted mention → unterminated; forged block inside an args string inert | `tests/test_fix_23_parser_stray_marker_cliffs.py` |
+| Activity view: loopback-only bind, no host flag, Host allowlist + X-Fullstop-UI POST guards, decision-file-only write surface | `tests/test_ui_server.py` |
+| Browser approvals: decision-file protocol outside the sandbox, full request on the card, forged id ignored, timeout → `stopped_approval` | `tests/test_ui_approver.py` |
+| `run --ui` / `resume --ui` end-to-end over real loopback HTTP; `ui` subcommand serves until stopped | `tests/test_ui_cli.py` |
+| UI read model: snapshot/history views and chain verify over the log | `tests/test_ui_model.py` |
+| Wizard: real strict validators, verbatim field errors, new-file-only atomic save, env values never persisted | `tests/test_ui_wizard.py` |
+| Front-end naming law (no prose in the assets) and inline-script breakout guard | `tests/test_ui_assets.py` |
 
 ## License
 

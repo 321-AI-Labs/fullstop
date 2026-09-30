@@ -330,6 +330,7 @@ function buildChrome() {
   runView.replaceChildren(el('div', 'state-loading', S.runLoading));
   const tabs = [['run', S.tabRun], ['history', S.tabHistory], ['wizard', S.tabWizard]];
   const nav = $('#tabs');
+  nav.setAttribute('aria-label', S.tabsAriaLabel);
   for (const [id, label] of tabs) {
     const b = el('button', null, label);
     b.setAttribute('role', 'tab');
@@ -355,7 +356,7 @@ async function fetchJson(url, opts) {
   if (!r.ok) {
     let detail = '';
     try { detail = (await r.json()).error || ''; } catch (e) {}
-    throw new Error('HTTP ' + r.status + (detail ? ': ' + detail : ''));
+    throw new Error(S.httpErrorPrefix + r.status + (detail ? ': ' + detail : ''));
   }
   return r.json();
 }
@@ -546,19 +547,20 @@ function renderEvent(e) {
   const d = el('div', 'detail');
   const ev = e.event;
   if (ev === 'run_start') {
-    d.appendChild(kv('goal', e.goal));
+    d.appendChild(kv(S.kvGoalLabel, e.goal));
   } else if (ev === 'resume') {
-    d.appendChild(kv('steps_done', e.steps_done));
+    d.appendChild(kv(S.kvStepsDoneLabel, e.steps_done));
   } else if (ev === 'model_reply') {
     const det = el('details');
-    det.appendChild(el('summary', null, 'reply \\u00b7 tokens ' +
-      (e.input_tokens || 0) + ' in / ' + (e.output_tokens || 0) + ' out'));
+    det.appendChild(el('summary', null, S.modelReplySummary
+      .replace('{input}', e.input_tokens || 0)
+      .replace('{output}', e.output_tokens || 0)));
     det.appendChild(preBlock(e.content || ''));
     d.appendChild(det);
   } else if (ev === 'tool_call') {
     d.appendChild(kv(e.tool, ''));
     const det = el('details');
-    det.appendChild(el('summary', null, 'args'));
+    det.appendChild(el('summary', null, S.detailArgsLabel));
     det.appendChild(preBlock(JSON.stringify(e.args, null, 2)));
     d.appendChild(det);
   } else if (ev === 'gate_decision') {
@@ -577,30 +579,32 @@ function renderEvent(e) {
   } else if (ev === 'tool_result') {
     const head = el('div');
     head.appendChild(el('span', e.ok ? 'ok-text' : 'err-text',
-      (e.ok ? 'OK ' : 'ERROR ' + (e.error_code || '')) + ' '));
+      (e.ok ? S.toolResultOk : S.toolResultError + (e.error_code || '')) + ' '));
     head.appendChild(el('span', 'mono', e.tool || ''));
     d.appendChild(head);
     if (e.error) d.appendChild(el('div', 'err-text mono', e.error));
     if (e.output) {
       const det = el('details');
-      det.appendChild(el('summary', null, 'output'));
+      det.appendChild(el('summary', null, S.detailOutputLabel));
       det.appendChild(preBlock(e.output));
       d.appendChild(det);
     }
   } else if (ev === 'step') {
-    d.appendChild(kv('n', e.n));
+    d.appendChild(kv(S.kvNLabel, e.n));
   } else if (ev === 'checkpoint') {
-    d.appendChild(kv('n', e.n));
+    d.appendChild(kv(S.kvNLabel, e.n));
     if (e.status) d.appendChild(el('span', 'dim', ' \\u00b7 ' + e.status));
   } else if (ev === 'guard_trip') {
     d.appendChild(chip('deny', e.kind));
     if (e.limit !== undefined && e.limit !== null)
       d.appendChild(el('span', 'dim',
-        ' \\u00b7 limit ' + e.limit + ' \\u00b7 value ' + e.value));
+        ' \\u00b7 ' + S.fragLimit + ' ' + e.limit +
+        ' \\u00b7 ' + S.fragValue + ' ' + e.value));
     if (e.tool) d.appendChild(el('span', 'mono', ' ' + e.tool));
   } else if (ev === 'config_loaded') {
-    d.appendChild(kv('manifest', String(e.manifest_sha256 || '').slice(0, 12)));
-    d.appendChild(el('span', 'dim', ' \\u00b7 policy ' +
+    d.appendChild(kv(S.kvManifestLabel,
+      String(e.manifest_sha256 || '').slice(0, 12)));
+    d.appendChild(el('span', 'dim', ' \\u00b7 ' + S.fragPolicy + ' ' +
       String(e.policy_sha256 || '').slice(0, 12)));
   } else if (ev === 'run_end') {
     d.appendChild(badge(e.status));
@@ -897,7 +901,7 @@ APP_HTML = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>fullstop</title>
+<title></title>
 <link rel="stylesheet" href="/app.css">
 <script>window.STRINGS = {strings};</script>
 <script defer src="/app.js"></script>
@@ -908,7 +912,7 @@ APP_HTML = """<!doctype html>
     <span class="mark" aria-hidden="true"></span>
     <div><h1 id="product-name"></h1><p id="tagline"></p></div>
   </div>
-  <nav class="tabs" id="tabs" role="tablist" aria-label="panels"></nav>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
   <div class="live" id="live-indicator" data-state="waiting">
     <span class="dot" aria-hidden="true"></span><span id="live-label"></span>
   </div>
@@ -917,17 +921,17 @@ APP_HTML = """<!doctype html>
   <div id="conn-error" class="state-error hidden" role="alert"></div>
   <section id="approvals" class="approvals" aria-live="polite"></section>
   <section id="panel-run" class="panel" role="tabpanel">
-    <div id="run-view"><div class="state-loading">...</div></div>
+    <div id="run-view"></div>
     <div class="timeline">
       <h2 id="timeline-heading"></h2>
       <p id="timeline-note-holder" class="timeline-note hidden"></p>
       <div id="timeline-list" class="timeline"></div>
-      <div id="timeline-empty" class="state-loading">...</div>
+      <div id="timeline-empty" class="state-loading"></div>
     </div>
   </section>
   <section id="panel-history" class="panel hidden" role="tabpanel">
     <div class="timeline"><h2 id="history-heading"></h2></div>
-    <div id="history-list"><div class="state-loading">...</div></div>
+    <div id="history-list"></div>
   </section>
   <section id="panel-wizard" class="panel hidden" role="tabpanel">
     <p id="wizard-intro" class="wizard-intro"></p>
@@ -943,4 +947,9 @@ APP_HTML = """<!doctype html>
 def render_html(strings_json: str) -> str:
     """The page shell. Strings blob injected verbatim; heading placeholders
     are filled by the script (so the shell itself carries no prose)."""
+    # The blob lands inside an inline <script>; a "</script" anywhere in it
+    # would break out of the element and turn string content into markup.
+    assert "</script" not in strings_json.lower(), (
+        "strings blob must never contain a script-close tag; it is "
+        "injected verbatim into the HTML")
     return APP_HTML.replace("{strings}", strings_json)

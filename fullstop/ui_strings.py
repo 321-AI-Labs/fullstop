@@ -29,6 +29,7 @@ TAGLINE = "a zero-dependency runtime for always-on agents"
 TAB_RUN = "Run"
 TAB_HISTORY = "History"
 TAB_WIZARD = "New run"
+TABS_ARIA_LABEL = "panels"
 FOOTER_OFFLINE = "loopback only · no external assets · nothing leaves this machine"
 
 # -- Live indicator ----------------------------------------------------------------
@@ -82,6 +83,21 @@ EVENT_LABELS = {
     "config_loaded": "config loaded",
     "run_end": "run ended",
 }
+
+# -- Timeline fragments (labels and detail fragments inside event rows) -------------
+
+MODEL_REPLY_SUMMARY = "reply · tokens {input} in / {output} out"
+KV_GOAL_LABEL = "goal"
+KV_STEPS_DONE_LABEL = "steps_done"
+KV_N_LABEL = "n"
+KV_MANIFEST_LABEL = "manifest"
+FRAG_POLICY = "policy"
+FRAG_LIMIT = "limit"
+FRAG_VALUE = "value"
+DETAIL_ARGS_LABEL = "args"
+DETAIL_OUTPUT_LABEL = "output"
+TOOL_RESULT_OK = "OK "
+TOOL_RESULT_ERROR = "ERROR "
 
 # -- Gate chips ----------------------------------------------------------------------
 
@@ -182,6 +198,7 @@ ERROR_FORBIDDEN_HOST = "refused: this server is loopback only"
 ERROR_FORBIDDEN_HEADER = "refused: POST requires the local UI header"
 ERROR_NO_PENDING = "no pending approval with that id"
 ERROR_NO_HOME = "no workspace: {error}"
+HTTP_ERROR_PREFIX = "HTTP "
 
 # -- The blob injected into the JavaScript ----------------------------------------------
 
@@ -192,6 +209,7 @@ STRINGS = {
     "tabRun": TAB_RUN,
     "tabHistory": TAB_HISTORY,
     "tabWizard": TAB_WIZARD,
+    "tabsAriaLabel": TABS_ARIA_LABEL,
     "footerOffline": FOOTER_OFFLINE,
     "liveLive": LIVE_LIVE,
     "liveWaiting": LIVE_WAITING,
@@ -219,6 +237,19 @@ STRINGS = {
     "logLoading": LOG_LOADING,
     "logTruncationNote": LOG_TRUNCATION_NOTE,
     "eventLabels": EVENT_LABELS,
+    "modelReplySummary": MODEL_REPLY_SUMMARY,
+    "kvGoalLabel": KV_GOAL_LABEL,
+    "kvStepsDoneLabel": KV_STEPS_DONE_LABEL,
+    "kvNLabel": KV_N_LABEL,
+    "kvManifestLabel": KV_MANIFEST_LABEL,
+    "fragPolicy": FRAG_POLICY,
+    "fragLimit": FRAG_LIMIT,
+    "fragValue": FRAG_VALUE,
+    "detailArgsLabel": DETAIL_ARGS_LABEL,
+    "detailOutputLabel": DETAIL_OUTPUT_LABEL,
+    "toolResultOk": TOOL_RESULT_OK,
+    "toolResultError": TOOL_RESULT_ERROR,
+    "httpErrorPrefix": HTTP_ERROR_PREFIX,
     "chipAllow": CHIP_ALLOW,
     "chipAsk": CHIP_ASK,
     "chipDeny": CHIP_DENY,
