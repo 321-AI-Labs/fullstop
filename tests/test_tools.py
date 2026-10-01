@@ -131,15 +131,38 @@ class FileToolTests(unittest.TestCase):
         self.assertEqual(result.error_code, "protected_target")
 
     def test_write_equality_rule_blocks_trailing_dot_spelling(self):
-        # Verified on this machine: realpath('e.md.') == 'e.md' for an
-        # EXISTING file, so resolved != literal -> SandboxError -> fail closed
-        # by design (do not "repair": see fullstop/tools/file.py docstring).
+        # v0.2.1: trailing-dot spellings are rejected BEFORE resolution on
+        # every platform. On Windows the realpath equality rule alone caught
+        # them (realpath('x.md.') == 'x.md' for an existing file); on Linux
+        # 'x.md.' is a distinct legal filename, the write SUCCEEDED, and the
+        # documented fail-closed promise silently did not hold — the ubuntu
+        # CI job caught exactly that. Do not "repair" (file.py docstring).
         (self.home / "x.md").write_text("real", encoding="utf-8")
         result = self.h.execute(ToolCall(
             "file_write", {"path": "x.md.", "content": "sneaky"}))
         self.assertEqual(result.error_code, "sandbox_escape")
         self.assertEqual((self.home / "x.md").read_text(encoding="utf-8"),
                          "real")
+
+    def test_write_equality_rule_blocks_trailing_space_spelling(self):
+        # Mirror of the trailing-dot case: trailing spaces are the other
+        # Windows-aliasing spelling, rejected pre-resolution everywhere.
+        (self.home / "x.md").write_text("real", encoding="utf-8")
+        result = self.h.execute(ToolCall(
+            "file_write", {"path": "x.md ", "content": "sneaky"}))
+        self.assertEqual(result.error_code, "sandbox_escape")
+        self.assertEqual((self.home / "x.md").read_text(encoding="utf-8"),
+                         "real")
+
+    def test_write_rejects_trailing_dot_or_space_component_mid_path(self):
+        # The component check fires on ANY component, not just the leaf —
+        # and nothing is created on disk (rejection is pre-resolution).
+        for spelling in ("notes./a.md", "notes /a.md"):
+            result = self.h.execute(ToolCall(
+                "file_write", {"path": spelling, "content": "x"}))
+            self.assertEqual(result.error_code, "sandbox_escape", spelling)
+        self.assertEqual([p.name for p in self.home.iterdir()],
+                         [".fullstop"])
 
     def test_write_equality_rule_blocks_symlinked_file_redirect(self):
         real = self.tmp / "real.md"
@@ -167,6 +190,45 @@ class FileToolTests(unittest.TestCase):
         # single level only
         result = self.h.execute(ToolCall("file_list", {"path": "sub"}))
         self.assertEqual(result.output, "")
+
+
+class AliasedSandboxRootTests(unittest.TestCase):
+    """Tools built over an ALIASED root spelling (symlink standing in for
+    GitHub's Windows runners exposing TEMP as the 8.3 short name
+    C:\\Users\\RUNNER~1\\...). Rels must be taken against the realpath'd
+    root or every write/note dies as a bogus ../.. escape (the 14 windows
+    CI failures of 2026-09-30 were exactly this, one root cause)."""
+
+    def setUp(self):
+        self._tmp = support.temp_dir()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.home = support.make_home(self.tmp / "home")
+        self.link = self.tmp / "home-link"
+        support.try_symlink(self, self.home, self.link, "sandbox-root-alias")
+
+    def test_write_and_note_land_in_real_home_via_aliased_root(self):
+        result = FileWriteTool(self.link, Redactor({}), WRITE_ALL).execute(
+            ToolCall("file_write",
+                     {"path": "notes/a.md", "content": "via alias"}))
+        self.assertTrue(result.ok, result.error)
+        self.assertEqual((self.home / "notes" / "a.md").read_text(
+            encoding="utf-8"), "via alias")
+        note = NoteTool(self.link, Redactor({})).execute(
+            ToolCall("note", {"text": "hello"}))
+        self.assertTrue(note.ok, note.error)
+        self.assertIn("hello", (self.home / "memory.md").read_text(
+            encoding="utf-8"))
+
+    def test_alias_read_of_protected_file_via_aliased_root(self):
+        protected = self.home / ".fullstop" / "crown.txt"
+        protected.write_text("jewels", encoding="utf-8")
+        file_alias = self.home / "alias.md"
+        support.try_symlink(self, protected, file_alias,
+                            "aliased-root-protected-alias")
+        result = FileReadTool(self.link, Redactor({}), Policy()).execute(
+            ToolCall("file_read", {"path": "alias.md"}))
+        self.assertEqual(result.error_code, "protected_target")
 
 
 class ShellToolTests(unittest.TestCase):

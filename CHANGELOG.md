@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.1
+
+- CI platform portability: the suite was red on GitHub's runners (both jobs,
+  first CI runs) while green on the Windows dev machine it was written on.
+  `sandbox.py` gains `sandbox_rel(root, target)`, which takes the in-sandbox
+  rel against the REALPATH'd root; `file_read`, `file_write`, and `note` now
+  use it. An aliased root spelling — GitHub's Windows runners expose TEMP as
+  the DOS 8.3 short name (`C:\Users\RUNNER~1\...`); a symlinked root is the
+  same shape — previously made every rel crawl out as `../..` garbage, so
+  the write-equality rule rejected every write/note on the runner (14
+  windows-job errors/failures, one root cause) and the alias-scoped
+  protected-read check never matched. Containment in `resolve_in_sandbox`
+  (which already realpaths both sides) is unchanged.
+- `file_write` rejects trailing-dot/space path components BEFORE resolution,
+  on every platform. The equality rule already failed closed on those
+  spellings where realpath collapses them (Windows); on Linux `x.md.` is a
+  distinct legal filename, the write SUCCEEDED (creating a new file, the
+  original untouched), and the documented fail-closed promise silently did
+  not hold — the ubuntu job's one failure. Nothing is weakened: this
+  restores the documented semantics cross-platform, on any path component.
+
 ## v0.2.0
 
 - The loopback activity view: `python -m fullstop ui`, plus `run --ui` and
