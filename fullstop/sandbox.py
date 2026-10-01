@@ -64,3 +64,17 @@ def rel_posix(root: Path, target: Path) -> str:
     Callers casefold only for matching, never for display decisions.
     """
     return Path(os.path.relpath(target, root)).as_posix()
+
+
+def sandbox_rel(root: Path, target: Path) -> str:
+    """rel_posix of ``target`` against the REALPATH'D root spelling.
+
+    ``resolve_in_sandbox`` realpaths both sides for containment but returns
+    only the target. If the caller then takes the rel against the RAW root
+    spelling and that spelling is an alias (GitHub's Windows runners expose
+    TEMP as ``C:\\Users\\RUNNER~1\\...``, a symlinked root is the same
+    shape), every rel crawls out as ``../../../...`` garbage and equality or
+    alias checks built on it misfire. Roots fed here must therefore be
+    realpath'd first — exactly once, here.
+    """
+    return rel_posix(Path(os.path.realpath(root)), target)

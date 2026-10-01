@@ -4,15 +4,15 @@ NORMALIZATION (shared, normative — IDENTICAL to the gate's rel):
 
 - ``literal_rel``  = args["path"].replace("\\\\", "/") with a leading "./"
   stripped (casefold only for MATCHING);
-- ``resolved_rel`` = rel_posix(root, resolved_real_path) (casefold only for
-  matching).
+- ``resolved_rel`` = sandbox_rel(root, resolved_real_path) — the rel against
+  the REALPATH'D root (casefold only for matching).
 """
 
 from pathlib import Path
 
 from ..policy import Policy
 from ..redact import Redactor
-from ..sandbox import SandboxError, rel_posix, resolve_in_sandbox
+from ..sandbox import SandboxError, resolve_in_sandbox, sandbox_rel
 from ..types import ToolCall, ToolResult
 from .base import Tool
 
@@ -22,6 +22,28 @@ def _normalize(user_path: str) -> str:
     while rel.startswith("./"):
         rel = rel[2:]
     return rel
+
+
+def _reject_windows_alias_spelling(user_path: str) -> None:
+    """Fail closed on trailing-dot/space path components, pre-resolution.
+
+    Windows aliases exactly these spellings (Win32 cannot create them
+    normally), so on Windows the realpath equality rule already blocks them.
+    On platforms where realpath leaves ``x.md.`` alone as a distinct legal
+    filename, the write would SUCCEED and the documented fail-closed promise
+    would silently not hold — so the component check rejects them outright,
+    on every OS, before any filesystem effect.
+    """
+    for part in user_path.replace("\\", "/").split("/"):
+        # ``.``/``..`` are NOT aliasing vectors — the resolver's traversal
+        # rejection (and, for ``.``, the equality rule) owns them, each with
+        # its own documented vector class.
+        if part in ("", ".", ".."):
+            continue
+        if part != part.rstrip(". "):
+            raise SandboxError(
+                "windows-aliasing path component (trailing dot or space) "
+                f"rejected: {user_path!r}")
 
 
 def _malformed(message: str) -> ToolResult:
@@ -57,7 +79,7 @@ class FileReadTool(Tool):
             return _malformed("max_bytes must be a positive integer")
         real = resolve_in_sandbox(self._root, path)
         literal_rel = _normalize(path)
-        resolved_rel = rel_posix(self._root, real)
+        resolved_rel = sandbox_rel(self._root, real)
         # ALIAS-SCOPED protected check (normative): fire ONLY when the literal
         # rel was unprotected but resolves to a protected file (the symlink
         # ALIAS case). An operator-approved DIRECT protected read (literal
@@ -107,14 +129,19 @@ class FileWriteTool(Tool):
         # secret must never land on disk, not even in a filename.
         scrubbed_path = self._redactor.scrub(path)
         scrubbed_content = self._redactor.scrub(content)
+        # Windows-aliasing spellings never reach the resolver (see helper):
+        # rejected BEFORE resolution, on every platform, so the equality
+        # rule's fail-closed promise cannot depend on the host's realpath.
+        _reject_windows_alias_spelling(scrubbed_path)
         real = resolve_in_sandbox(self._root, scrubbed_path)
         literal_rel = _normalize(scrubbed_path)
-        resolved_rel = rel_posix(self._root, real)
+        resolved_rel = sandbox_rel(self._root, real)
         # Anti-aliasing for writes, outright: the resolved target must EQUAL
         # the literal spelling. NOTE (intentional, do not "repair"): this rule
         # FAILS CLOSED on legal-but-unusual Windows spellings whose realpath
-        # differs from the literal (8.3 short names, trailing dots and
-        # spaces) — blocking them is deliberate.
+        # differs from the literal (8.3 short names; trailing dot/space
+        # spellings are rejected even earlier, pre-resolution) — blocking
+        # them is deliberate.
         if resolved_rel.casefold() != literal_rel.casefold():
             raise SandboxError(
                 f"path resolves elsewhere in workspace: {literal_rel!r} -> "

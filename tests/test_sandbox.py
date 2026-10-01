@@ -9,7 +9,8 @@ import support
 from fullstop.gate import Gate
 from fullstop.policy import Policy
 from fullstop.redact import Redactor
-from fullstop.sandbox import SandboxError, rel_posix, resolve_in_sandbox
+from fullstop.sandbox import (SandboxError, rel_posix, resolve_in_sandbox,
+                              sandbox_rel)
 from fullstop.tools import build_registry
 from fullstop.tools.file import FileReadTool, FileWriteTool
 from fullstop.types import Action, ToolCall
@@ -50,8 +51,12 @@ class ResolveTests(unittest.TestCase):
                          Path(os.path.realpath(self.root)))
 
     def test_plain_relative_path_resolves(self):
+        # sandbox_rel (rel against the REALPATH'd root): the assertion mixes
+        # a raw root spelling with a realpath'd target, and on GitHub's
+        # windows runners the raw TEMP spelling is the 8.3 alias — rel_posix
+        # against it yields ../../.. garbage (the v0.2.1 CI fix).
         real = resolve_in_sandbox(self.root, "notes/a.md")
-        self.assertEqual(rel_posix(self.root, real), "notes/a.md")
+        self.assertEqual(sandbox_rel(self.root, real), "notes/a.md")
 
     VECTORS = [
         "../../escape.txt",

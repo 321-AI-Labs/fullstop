@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..redact import Redactor
-from ..sandbox import SandboxError, rel_posix, resolve_in_sandbox
+from ..sandbox import SandboxError, resolve_in_sandbox, sandbox_rel
 from ..types import NOTE_FILENAME, ToolCall, ToolResult
 from .base import Tool
 
@@ -43,7 +43,7 @@ class NoteTool(Tool):
         # memory.md cannot redirect a (typically pre-approved, promptless)
         # note write outside the workspace.
         target = resolve_in_sandbox(self._root, NOTE_FILENAME)
-        resolved_rel = rel_posix(self._root, target)
+        resolved_rel = sandbox_rel(self._root, target)
         if resolved_rel.casefold() != NOTE_FILENAME.casefold():
             raise SandboxError(
                 f"note target resolves elsewhere in workspace: "
