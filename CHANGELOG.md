@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.1
+
+- Packaging release: tag-triggered PyPI publish workflow (trusted publishing
+  via OIDC; the test suite gates the upload). No runtime changes.
+
 ## v0.2.0
 
 - The loopback activity view: `python -m fullstop ui`, plus `run --ui` and
