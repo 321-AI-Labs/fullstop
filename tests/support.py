@@ -37,14 +37,42 @@ SYMLINK_SKIPS: list[str] = []
 TRAILING_DOT_SKIPS: list[str] = []
 
 
+class _CanonicalTempDir:
+    """TemporaryDirectory exposing the canonical (realpath) spelling of name.
+
+    The runner's TEMP can be reached via an 8.3 short name (RUNNER~1 for
+    runneradmin) or a junction; pathlib comparisons are textual, so a fixture
+    root in one spelling and sandbox-resolved paths in the other break every
+    path assertion (Windows CI red of 2026-09-30..2026-10-19). Cleanup
+    delegates with the original spelling — the same physical directory.
+    """
+
+    def __init__(self) -> None:
+        self._t = tempfile.TemporaryDirectory()
+        self.name = os.path.realpath(self._t.name)
+
+    def cleanup(self) -> None:
+        self._t.cleanup()
+
+    def __enter__(self) -> str:
+        return self.name
+
+    def __exit__(self, *exc) -> None:
+        self.cleanup()
+
+
 def temp_dir():
-    return tempfile.TemporaryDirectory()
+    return _CanonicalTempDir()
 
 
 def make_home(base: Path, name: str = "home") -> Path:
     home = base / name
     (home / ".fullstop").mkdir(parents=True, exist_ok=True)
-    return home
+    # Canonical spelling (realpath): the runner's TEMP can be spelled via an
+    # 8.3 short name (C:\Users\RUNNER~1) or a junction while the sandbox
+    # returns realpath-normalized targets — an unnormalized root fails every
+    # write-equality comparison (Windows CI red of 2026-09-30..2026-10-19).
+    return Path(os.path.realpath(home))
 
 
 def call_block(name: str, args: dict) -> str:
