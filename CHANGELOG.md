@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.2
+
+- The sandbox root is canonicalized once at the composition root, so Windows
+  spellings of the runtime's own root directory (8.3 short names, as on
+  hosted CI runners) can no longer fail every write as a false
+  sandbox_escape. User-supplied paths still fail closed on unusual
+  spellings. Windows CI is green again.
+- Package metadata now carries project URLs (homepage
+  https://www.321ai.xyz and repository
+  https://github.com/321-AI-Labs/fullstop), so the PyPI page links back.
+
 ## v0.2.1
 
 - Packaging release: tag-triggered PyPI publish workflow (trusted publishing
