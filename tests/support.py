@@ -31,6 +31,11 @@ from fullstop.state import activity_path
 # carried in the skip message.
 SYMLINK_SKIPS: list[str] = []
 
+# Trailing-dot aliasing tests likewise: the redirect the write-path equality
+# rule blocks only exists where realpath collapses the dot (NTFS); Linux
+# preserves it, so the spelling is a distinct name with nothing to block.
+TRAILING_DOT_SKIPS: list[str] = []
+
 
 def temp_dir():
     return tempfile.TemporaryDirectory()
@@ -155,3 +160,19 @@ def try_symlink(testcase, target, link: Path, label: str) -> None:
         testcase.skipTest(
             f"symlink unavailable on this platform ({label}; "
             f"{len(SYMLINK_SKIPS)} symlink case(s) skipped so far): {e}")
+
+
+def require_trailing_dot_aliasing(testcase, label: str) -> None:
+    """Proceed only if realpath collapses a trailing dot on an existing
+    file; otherwise skip WITH a count — never silently pass."""
+    with tempfile.TemporaryDirectory() as tmp:
+        probe = Path(tmp) / "probe.md"
+        probe.write_text("x", encoding="utf-8")
+        if Path(os.path.realpath(str(probe) + ".")).name == "probe.md":
+            return
+    TRAILING_DOT_SKIPS.append(label)
+    testcase.skipTest(
+        f"trailing-dot spellings are distinct names on this platform; "
+        f"realpath preserves the dot, so no redirect exists for the "
+        f"write-path equality rule to block ({label}; "
+        f"{len(TRAILING_DOT_SKIPS)} trailing-dot case(s) skipped so far)")

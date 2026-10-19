@@ -134,6 +134,10 @@ class FileToolTests(unittest.TestCase):
         # Verified on this machine: realpath('e.md.') == 'e.md' for an
         # EXISTING file, so resolved != literal -> SandboxError -> fail closed
         # by design (do not "repair": see fullstop/tools/file.py docstring).
+        # The aliasing itself is filesystem-conditional: Linux realpath
+        # preserves the dot, making 'x.md.' a distinct (blockable-free)
+        # literal, so the case gates on the probed platform behavior.
+        support.require_trailing_dot_aliasing(self, "write-trailing-dot")
         (self.home / "x.md").write_text("real", encoding="utf-8")
         result = self.h.execute(ToolCall(
             "file_write", {"path": "x.md.", "content": "sneaky"}))
